@@ -20,7 +20,7 @@ tab=$'\t'
 #	Ongoing: 2022-06-06T02:52:22AEST for 'cd' to work, none of the function calls leading to it can be in subshells (and we would have to use temp files (or global vars, or other dubious methods) if we wanted to return data from them) [...] (is that we find we were not doing so even before considering this possible problem indiciative of <good> design (vis-a-vis dataflow)?) 
 #	Ongoing: 2022-06-06T03:07:33AEST (don't put any '|' in $HOME)
 #	}}}
-flag_debug_vimh=0
+flag_debug_vimh=1
 log_debug_vimh() {
 #	{{{
 	if [[ $flag_debug_vimh -ne 0 ]]; then
@@ -159,7 +159,10 @@ _Vimh_get_uniquepaths() {
 		return 2
 	fi
 	#	}}}
-	local files_list_str=$( _Vimh_read_file "$path_input" "$filter_str"  | awk -F'\t' '{print $5}' | tac | awk '!count[$0]++' | tac )
+
+	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
+	local files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
+
 	#	validate non-empty: files_list_str
 	#	{{{
 	if [[ -z "$files_list_str" ]]; then
@@ -176,10 +179,10 @@ _Vimh_get_uniquepaths() {
 	fi
 	#	}}}
 	log_debug_vimh "$func_name, lines(files_list_str)=(`echo -n "$files_list_str" | wc -l`)"
-	echo -n "$files_list_str"
+	echo "$files_list_str"
 }
 
-_Vimh_read_file() {
+_Vimh_read_paths_in_file() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -200,7 +203,7 @@ _Vimh_read_file() {
 	fi
 	#	}}}
 	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?)
-	cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit
+	cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' 
 }
 
 _Vimh_filter_existing_paths() {

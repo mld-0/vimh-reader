@@ -20,8 +20,7 @@ tab=$'\t'
 #	Ongoing: 2022-06-06T02:52:22AEST for 'cd' to work, none of the function calls leading to it can be in subshells (and we would have to use temp files (or global vars, or other dubious methods) if we wanted to return data from them) [...] (is that we find we were not doing so even before considering this possible problem indiciative of <good> design (vis-a-vis dataflow)?) 
 #	Ongoing: 2022-06-06T03:07:33AEST (don't put any '|' in $HOME)
 #	}}}
-
-flag_debug_vimh=1
+flag_debug_vimh=0
 log_debug_vimh() {
 #	{{{
 	if [[ $flag_debug_vimh -ne 0 ]]; then
@@ -38,7 +37,6 @@ _vimh_path_localhistory="$HOME/.vimh"
 #	NOT IMPLEMENTED global history 
 _vimh_path_dir_globalhistory="$mld_out_cloud_shared/combined-logs"
 _vimh_name_globalhistory="vimh.vi.txt"
-
 #	NOT IMPLEMENTED (slow) convert every path to realpath
 _vimh_flag_only_realpaths=0		
 
@@ -48,7 +46,11 @@ _vimh_path_input="$_vimh_path_localhistory"
 #	application to open files
 _vimh_editor="$EDITOR"
 
+#	number of lines to given number of lines
 _vimh_lines_limit=25000
+
+_vimh_offset_height=10
+_vimh_offset_width=8
 
 #	validate existance: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor
 #	{{{
@@ -77,9 +79,13 @@ Vimh() {
 	local func_about="about"
 	local previous_flag_debug_vimh=$flag_debug_vimh
 	local func_help="""$func_name, $func_about
+	-f | --filter		filter_str, Filter input lines with value
+	-g | --global		UNIMPLEMENTED
 	-v | --debug
 	-h | --help
 	--version"""
+	local filter_str=""
+	local flag_global=0
 	#	parse args "$@"
 	#	{{{
 	if echo "${1:-}" | perl -wne '/^\s*-h|--help\s*$/ or exit 1'; then
@@ -88,6 +94,15 @@ Vimh() {
 	fi
 	for arg in "$@"; do
 		case $arg in
+			-f|--filter)
+				filter_str="$2"
+				shift
+				shift
+				;;
+			-g|--global)
+				flag_global=1
+				shift
+				;;
 			-h|--help)
 				echo "$func_help"
 				return 2
@@ -105,11 +120,18 @@ Vimh() {
 		esac
 	done
 	#	}}}
+	#	quit if given '-g|--global'
+	#	{{{
+	if [[ ! $flag_global -eq 0 ]]; then
+		echo "$func_name, error, '-g|--global' not implemented" > /dev/stderr
+		return 2
+	fi
+	#	}}}
 
 	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
-	local unique_files=$( _Vimh_get_uniquepaths "$_vimh_path_input" )
-	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_prompt_open' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
-	_Vimh_prompt_open "$unique_files"
+	local unique_files=$( _Vimh_get_uniquepaths "$_vimh_path_input" "$filter_str" )
+	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
+	_Vimh_promptAndOpen "$unique_files"
 
 	flag_debug_vimh=$previous_flag_debug_vimh
 }
@@ -129,6 +151,7 @@ _Vimh_get_uniquepaths() {
 	fi
 	#	}}}
 	local path_input="${1:-}"
+	local filter_str="${2:-}"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -136,7 +159,7 @@ _Vimh_get_uniquepaths() {
 		return 2
 	fi
 	#	}}}
-	local files_list_str=$( _Vimh_read_file "$path_input"  | awk -F'\t' '{print $5}' | tac | awk '!count[$0]++' | tac )
+	local files_list_str=$( _Vimh_read_file "$path_input" "$filter_str"  | awk -F'\t' '{print $5}' | tac | awk '!count[$0]++' | tac )
 	#	validate non-empty: files_list_str
 	#	{{{
 	if [[ -z "$files_list_str" ]]; then
@@ -168,6 +191,7 @@ _Vimh_read_file() {
 	fi
 	#	}}}
 	local path_input="${1:-}"
+	local filter_str="${2:-}"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -175,7 +199,8 @@ _Vimh_read_file() {
 		return 2
 	fi
 	#	}}}
-	cat "$path_input" | tail -n $_vimh_lines_limit
+	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?)
+	cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit
 }
 
 _Vimh_filter_existing_paths() {
@@ -202,7 +227,7 @@ _Vimh_filter_existing_paths() {
 }
 
 #	Ongoing: 2022-06-06T02:42:37AEST can't use subshells if we want our use of 'cd' to effect the caller(?)
-_Vimh_prompt_open() {
+_Vimh_promptAndOpen() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -242,8 +267,8 @@ _Vimh_truncate_paths_to_screen() {
 	fi
 	#	}}}
 	local unique_files="${1:-}"
-	local output_height=$(( `tput lines` - 10 ))
-	local output_width=$(( `tput cols` - 8 ))
+	local output_height=$(( `tput lines` - $_vimh_offset_height ))
+	local output_width=$(( `tput cols` - $_vimh_offset_width ))
 	#	ensure output_height and output_width > 1
 	#	{{{
 	if [[ $output_height -lt 1 ]]; then
@@ -495,5 +520,4 @@ _Vimh_GetPath_GlobalHistory() {
 #if [[ "$check_sourced" -eq 0 ]]; then
 #	vimh "$@"
 #fi
-
 

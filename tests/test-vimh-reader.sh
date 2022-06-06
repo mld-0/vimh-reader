@@ -13,11 +13,10 @@ set -o pipefail  # don't hide errors within pipes
 #	Ongoing: 2022-06-06T19:43:01AEST test requires /private/tmp (also accessible as /tmp) (macOS temp dir that isn't TMPDIR)
 #	}}}
 
-self_name="test-vimh-reader"
+self_name='test-vimh-reader'
 self_dir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 test_script="$self_dir/../vimh-reader.sh"
-test_dir_path="/tmp/test_vimh_reader"
 test_data_path="$self_dir/data/vimh"
 #	{{{
 if [[ ! -f "$test_script" ]]; then
@@ -28,19 +27,14 @@ if [[ ! -f "$test_data_path" ]]; then
 	echo "$self_name, error, not found, test_data_path=($test_data_path)" > /dev/stderr
 	exit 2
 fi
-if [[ -d "$test_dir_path" ]]; then
-	echo rm -r "$test_dir_path" > /dev/stderr
-	rm -r "$test_dir_path"
-fi
 #	}}}
 
-echo mkdir -p "$test_dir_path" > /dev/stderr
-mkdir -p "$test_dir_path"
+path_testdir='/tmp/test-vimh-reader'
 
 echo source "$test_script" > /dev/stderr
 source "$test_script"
 
-setup_tmp_files() {
+setup_tmp_dir_with_files() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -51,27 +45,44 @@ setup_tmp_files() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
-	local dir_private_tmp="/private/tmp"
-	if [[ ! -d "$dir_private_tmp" ]]; then
-		echo "$func_name, error, not found, dir_private_tmp=($dir_private_tmp)" > /dev/stderr
+	echo mkdir "$path_testdir" > /dev/stderr
+	mkdir -p "$path_testdir"
+	if [[ ! -d "$path_testdir" ]]; then
+		echo "$func_name, error, not found, path_testdir=($path_testdir)" > /dev/stderr
 		exit 2
 	fi
 
-	local files_create=( "abc.txt" "def.txt" "hij.txt" "xyz.txt" )
-	local path_create=""
+	local files_create=( "abc.txt" "def.txt" "hij.txt" "zxy.txt" "lmn.txt" )
+	local files_prohbit=( "abc.t" "def.t" )
+
 	for f in "${files_create[@]}"; do
-		path_create="$dir_private_tmp/$f"
+		local path_create="$path_testdir/$f"
+		echo touch "$path_create" > /dev/stderr
 		touch "$path_create"
-		if [[ ! -f "$path_create" ]]; then
-			echo "$func_name, error, not created, path_create=($path_create)" > /dev/stderr
+		if [[ ! -f "$path_create" ]]; then echo "$func_name, error, not created, path_create=($path_create)" > /dev/stderr; exit 2; fi
+	done
+
+	for f in "${files_prohbit[@]}"; do
+		local path_prohibit="$path_testdir/$f"
+		if [[ -e "$path_prohibit"  ]]; then
+			echo "$func_name, error, '$path_prohibit' exists (test requires that it does not)" > /dev/stderr
 			exit 2
 		fi
 	done
+}
 
-	if [[ -e "/private/tmp/abc.t"  ]]; then
-		echo "$func_name, error, '/private/tmp/abc.t' exists (test requires that it does not)" > /dev/stderr
-		exit 2
+
+delete_test_files_in_tmp() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
+	#	}}}
 }
 
 
@@ -122,7 +133,12 @@ test_Vimh_get_uniquepaths() {
 
 	#	Test without filter str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" )
-	expected_str="/private/tmp/def.txt$nl/private/tmp/hij.txt$nl/private/tmp/lmn.txt$nl/tmp/abc.txt$nl/private/tmp/abc.txt$nl/private/tmp/zxy.txt"
+	expected_str=\
+"/tmp/test-vimh-reader/def.txt
+/tmp/test-vimh-reader/hij.txt
+/tmp/test-vimh-reader/lmn.txt
+/tmp/test-vimh-reader/abc.txt
+/tmp/test-vimh-reader/zxy.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
 		diff <( echo $result_str ) <( echo $expected_str )
@@ -131,12 +147,14 @@ test_Vimh_get_uniquepaths() {
 
 	#	Test with filter str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
-	expected_str="/tmp/abc.txt$nl/private/tmp/abc.txt"
+	expected_str=\
+"/tmp/test-vimh-reader/abc.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: 2\n"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+
 }
 
 test_Vimh_filter_existing_paths() {
@@ -178,6 +196,7 @@ test_Vimh_prompt_open_files() {
 	#	}}}
 }
 
+setup_tmp_dir_with_files
 
 test_Vimh_read_paths_in_file
 test_Vimh_get_uniquepaths

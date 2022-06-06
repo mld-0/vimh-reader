@@ -31,10 +31,15 @@ fi
 
 path_testdir='/tmp/test-vimh-reader'
 
+files_create=( "abc.txt" "def.txt" "hij.txt" "zxy.txt" "lmn.txt" )
+files_prohbit=( "abc.t" "def.t" )
+
 echo source "$test_script" > /dev/stderr
 source "$test_script"
+flag_debug_vimh=1
 
 setup_tmp_dir_with_files() {
+#	{{{
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -45,34 +50,27 @@ setup_tmp_dir_with_files() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
-	echo mkdir "$path_testdir" > /dev/stderr
+	#echo mkdir "$path_testdir" > /dev/stderr
 	mkdir -p "$path_testdir"
 	if [[ ! -d "$path_testdir" ]]; then
 		echo "$func_name, error, not found, path_testdir=($path_testdir)" > /dev/stderr
 		exit 2
 	fi
-
-	local files_create=( "abc.txt" "def.txt" "hij.txt" "zxy.txt" "lmn.txt" )
-	local files_prohbit=( "abc.t" "def.t" )
-
 	for f in "${files_create[@]}"; do
 		local path_create="$path_testdir/$f"
-		echo touch "$path_create" > /dev/stderr
+		#echo touch "$path_create" > /dev/stderr
 		touch "$path_create"
 		if [[ ! -f "$path_create" ]]; then echo "$func_name, error, not created, path_create=($path_create)" > /dev/stderr; exit 2; fi
 	done
-
 	for f in "${files_prohbit[@]}"; do
 		local path_prohibit="$path_testdir/$f"
-		if [[ -e "$path_prohibit"  ]]; then
-			echo "$func_name, error, '$path_prohibit' exists (test requires that it does not)" > /dev/stderr
-			exit 2
-		fi
+		if [[ -e "$path_prohibit"  ]]; then echo "$func_name, error, '$path_prohibit' exists (test requires that it does not)" > /dev/stderr; exit 2; fi
 	done
 }
-
+#	}}}
 
 delete_test_files_in_tmp() {
+#	{{{
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -83,7 +81,14 @@ delete_test_files_in_tmp() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+	for f in "${files_create[@]}"; do
+		local path_delete="$path_testdir/$f"
+		#echo rm "$path_delete" > /dev/stderr
+		rm "$path_delete"
+		if [[ -f "$path_delete" ]]; then echo "$func_name, error, not deleted, path_delete=($path_delete)" > /dev/stderr; exit 2; fi
+	done
 }
+#	}}}
 
 
 test_Vimh_read_paths_in_file() {
@@ -115,6 +120,8 @@ test_Vimh_read_paths_in_file() {
 		echo "$func_name, fail: 2\n"
 		exit 2
 	fi
+
+	echo "$func_name, DONE"
 }
 
 test_Vimh_get_uniquepaths() {
@@ -155,7 +162,21 @@ test_Vimh_get_uniquepaths() {
 		exit 2
 	fi
 
+	#	Test with test files deleted 
+	delete_test_files_in_tmp
+	result_str=$( _Vimh_get_uniquepaths "$test_data_path" )
+	expected_str=\
+""
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 1\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+	setup_tmp_dir_with_files
+
+	echo "$func_name, DONE"
 }
+
 
 test_Vimh_filter_existing_paths() {
 	#	{{{
@@ -168,6 +189,66 @@ test_Vimh_filter_existing_paths() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+	local test_str=""
+	local expected_str=""
+	local result_str=""
+
+	#	Basic test -> files in-order
+	#	test_str includes leading and trailing newlines
+	test_str=$nl$( create_test_str_files_list )$nl
+	expected_str=\
+"/tmp/test-vimh-reader/abc.txt
+/tmp/test-vimh-reader/def.txt
+/tmp/test-vimh-reader/hij.txt
+/tmp/test-vimh-reader/zxy.txt
+/tmp/test-vimh-reader/lmn.txt"
+	result_str=$( _Vimh_filter_existing_paths "$test_str" )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 1\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+
+	#	Test empty input -> empty output 
+	test_str=""
+	expected_str=\
+""
+	result_str=$( _Vimh_filter_existing_paths "$test_str" )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 2\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+
+	#	Test with all files deleted -> empty output
+	#	test_str includes leading and trailing newlines
+	delete_test_files_in_tmp
+	test_str=$nl$( create_test_str_files_list )$nl
+	expected_str=\
+""
+	result_str=$( _Vimh_filter_existing_paths "$test_str" )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 1\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+	setup_tmp_dir_with_files
+	
+
+	echo "$func_name, DONE"
+}
+
+create_test_str_files_list() {
+	local test_str=""
+	for f in "${files_create[@]}"; do
+		local path_file="$path_testdir/$f"
+		test_str="$test_str$path_file$nl"
+	done
+	for f in "${files_prohbit[@]}"; do
+		local path_file="$path_testdir/$f"
+		test_str="$test_str$path_file$nl"
+	done
+	echo "$test_str"
 }
 
 test_Vimh_truncate_paths_to_screen() {
@@ -181,6 +262,8 @@ test_Vimh_truncate_paths_to_screen() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+
+	echo "$func_name, DONE"
 }
 
 test_Vimh_prompt_open_files() {
@@ -194,16 +277,18 @@ test_Vimh_prompt_open_files() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+
+	echo "$func_name, DONE"
 }
 
 setup_tmp_dir_with_files
 
 test_Vimh_read_paths_in_file
 test_Vimh_get_uniquepaths
-
 test_Vimh_filter_existing_paths
 test_Vimh_truncate_paths_to_screen
 test_Vimh_prompt_open_files
+
 
 echo "DONE" > /dev/stderr
 

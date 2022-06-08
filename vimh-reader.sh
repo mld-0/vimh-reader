@@ -40,8 +40,8 @@ _vimh_name_globalhistory="vimh.vi.txt"
 #	NOT IMPLEMENTED (slow) convert every path to realpath
 _vimh_flag_only_realpaths=0		
 
-#	path 'Vimh' uses for input
-_vimh_path_input="$_vimh_path_localhistory"
+##	path 'Vimh' uses for input
+#_vimh_path_input="$_vimh_path_localhistory"
 
 #	application to open files
 _vimh_editor="$EDITOR"
@@ -52,7 +52,7 @@ _vimh_lines_limit=25000
 _vimh_offset_height=10
 _vimh_offset_width=8
 
-#	validate existance: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor
+#	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh
 #	{{{
 if [[ ! -f "$_vimh_path_localhistory" ]]; then
 	echo "vimh, warning, not found, _vimh_path_localhistory=($_vimh_path_localhistory)" > /dev/stderr
@@ -62,6 +62,12 @@ if [[ ! -d "$_vimh_path_dir_globalhistory" ]]; then
 fi
 if [[ ! -x "$_vimh_editor" ]]; then
 	echo "vimh, warning, not found, _vimh_editor=($_vimh_editor)" > /dev/stderr
+fi
+if [[ ! -f "$mld_log_vimh" ]]; then
+	echo "vimh, warning, not found, mld_log_vim=($mld_log_vim)" > /dev/stderr
+fi
+if [[ ! `readlink -f "$_vimh_path_localhistory"` == "$mld_log_vimh" ]]; then
+	echo "vimh, warning, _vimh_path_localhistory=($_vimh_path_localhistory) does not link to mld_log_vimh=($mld_log_vimh)"  > /dev/stderr
 fi
 #	}}}
 
@@ -79,8 +85,8 @@ Vimh() {
 	local func_about="about"
 	local previous_flag_debug_vimh=$flag_debug_vimh
 	local func_help="""$func_name, $func_about
-	-f | --filter		filter_str, Filter input lines with value
-	-g | --global		UNIMPLEMENTED
+	-f | --filter	[val]	Filter input lines with value
+	-g | --global			Use combined logs from 'mld_out_cloud_shared'
 	-v | --debug
 	-h | --help
 	--version"""
@@ -120,16 +126,16 @@ Vimh() {
 		esac
 	done
 	#	}}}
-	#	quit if given '-g|--global'
-	#	{{{
+
+	local path_input="$_vimh_path_localhistory"
 	if [[ ! $flag_global -eq 0 ]]; then
-		echo "$func_name, error, '-g|--global' not implemented" > /dev/stderr
-		return 2
+		_Vimh_Update_GlobalHistory
+		path_input=$( _Vimh_GetPath_GlobalHistory )
 	fi
-	#	}}}
 
 	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
-	local unique_files=$( _Vimh_get_uniquepaths "$_vimh_path_input" "$filter_str" )
+	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" )
+
 	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
 	_Vimh_promptAndOpen "$unique_files"
 
@@ -195,6 +201,8 @@ _Vimh_read_paths_in_file() {
 	#	}}}
 	local path_input="${1:-}"
 	local filter_str="${2:-}"
+	log_debug_vimh "$func_name, path_input=($path_input)"
+	log_debug_vimh "$func_name, filter_str=($filter_str)"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -391,8 +399,6 @@ _Vimh_cd_and_open() {
 	$_vimh_editor "$path_open"
 }
 
-
-
 _Vimh_Update_GlobalHistory() {
 	#	{{{
 	local func_name=""
@@ -404,6 +410,29 @@ _Vimh_Update_GlobalHistory() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+	local path_global=$( _Vimh_GetPath_GlobalHistory )
+	local IFS_temp=$IFS
+	IFS=$nl
+	#local IFS=$nl
+	local path_locals=( $( _Vimh_GetPaths_CloudHistories ) )
+	IFS=$IFS_temp
+	local path_temp=$( mktemp )
+	#	remove existing: path_global, path_temp
+	#	{{{
+	if [[ -f "$path_global" ]]; then
+		log_debug_vimh "$func_name, delete path_global=($path_global)"
+		rm "$path_global"
+	fi
+	if [[ -f "$path_temp" ]]; then
+		log_debug_vimh "$func_name, delete path_temp=($path_temp)"
+		rm "$path_temp"
+	fi
+	#	}}}
+	for f in "${path_locals[@]}"; do
+		log_debug_vimh "$func_name, f=($f)"
+		cat "$f" | tail -n $_vimh_lines_limit >> "$path_temp"
+	done
+	cat "$path_temp" | sort -h > "$path_global"
 }
 
 _Vimh_GetPath_GlobalHistory() {
@@ -417,8 +446,63 @@ _Vimh_GetPath_GlobalHistory() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+	#	validate: _vimh_path_dir_globalhistory, _vimh_name_globalhistory
+	#	{{{
+	if [[ ! -d "$_vimh_path_dir_globalhistory" ]]; then
+		echo "$func_name, error, not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
+		return 2
+	fi
+	if [[ -z "$_vimh_name_globalhistory" ]]; then
+		echo "$func_name, error, _vimh_name_globalhistory=($_vimh_name_globalhistory)" > /dev/stderr
+		return 2
+	fi
+	#	}}}
+	local path_str="$_vimh_path_dir_globalhistory/$_vimh_name_globalhistory"
+	log_debug_vimh "$func_name, path_str=($path_str)"
+	echo "$path_str"
 }
 
+_Vimh_GetPaths_CloudHistories() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+	fi
+	#	}}}
+	#	validate existance: _vimh_path_dir_globalhistory
+	#	{{{
+	if [[ ! -d "$_vimh_path_dir_globalhistory" ]]; then
+		echo "$func_name, error, not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
+		return 2
+	fi
+	#	}}}
+	local IFS_temp=$IFS
+	IFS=$nl
+	local result=( $( find $_vimh_path_dir_globalhistory/*/$_vimh_name_globalhistory -print ) )
+	IFS=$IFS_temp
+	#	validate: result_str
+	#	{{{
+	if [[ "${#result[@]}" -le 0 ]]; then
+		echo "$func_name, error, result=(${result[@]})" > /dev/stderr
+		return 2
+	fi
+	#	}}}
+	for f in "${result[@]}"; do
+		log_debug_vimh "$func_name, f=($f)"
+		#	validate: f
+		#	{{{
+		if [[ ! -f "$f" ]]; then
+			echo "$func_name, error, not found, f=($f)" > /dev/stderr
+			return 2
+		fi
+		#	}}}
+		echo "$f"
+	done
+}
 
 
 #	Ongoing: 2022-06-04T23:17:26AEST problematic functions:
@@ -506,7 +590,6 @@ _Vimh_GetPath_GlobalHistory() {
 #	#done
 ##	}}}
 #}
-
 #check_sourced=1
 ##	{{{
 #if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -523,4 +606,5 @@ _Vimh_GetPath_GlobalHistory() {
 #if [[ "$check_sourced" -eq 0 ]]; then
 #	vimh "$@"
 #fi
+
 

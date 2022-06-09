@@ -88,7 +88,7 @@ Vimh() {
 	local func_help="""$func_name, $func_about
 	-f | --filter	[val]	Filter input lines with value
 	-g | --global			Use combined logs from 'mld_out_cloud_shared'
-	-d | --dirs 	UNIMPLEMENTED Get list of unique dirs
+	-d | --dirs 			Get list of unique dirs
 	-v | --debug
 	-h | --help
 	--version"""

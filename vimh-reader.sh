@@ -281,7 +281,7 @@ _Vimh_filter_only_dirs() {
 	local unique_files=( $( echo "${1:-}" ) )
 	local result_str=""
 	for f in "${unique_files[@]}"; do
-		if [[ -d $f ]]; then
+		if [[ ! -d $f ]]; then
 			f=$( dirname "$f" )
 		fi
 		result_str=$result_str$nl$f

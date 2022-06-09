@@ -323,7 +323,7 @@ _Vimh_promptAndOpen() {
 	#	}}}
 	local unique_files="${1:-}"
 	local IFS=$nl
-	local prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" | sed "s|$HOME|~|g" ) )
+	local prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" ) )
 	#	validate: prompt_files
 	#	{{{
 	if [[ ${#prompt_files[@]} -le 0 ]]; then
@@ -370,7 +370,7 @@ _Vimh_truncate_paths_to_screen() {
 	log_debug_vimh "$func_name, output_height=($output_height), output_width=($output_width)"
 
 	local IFS=$nl
-	local prompt_files=( $( echo -n "$unique_files" | tail -n $output_height ) )
+	local prompt_files=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 
 	for loop_file in "${prompt_files[@]}"; do

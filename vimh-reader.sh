@@ -47,8 +47,6 @@ _vimh_editor="$EDITOR"
 #	number of lines to given number of lines
 _vimh_lines_limit=25000
 
-_vimh_offset_height=10
-_vimh_offset_width=8
 
 #	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh
 #	{{{
@@ -358,8 +356,8 @@ _Vimh_truncate_paths_to_screen() {
 	fi
 	#	}}}
 	local unique_files="${1:-}"
-	local output_height=$(( `tput lines` - $_vimh_offset_height ))
-	local output_width=$(( `tput cols` - $_vimh_offset_width ))
+	local output_height=$(( `tput lines` - 10 ))
+	local output_width=$(( `tput cols` - 8 ))
 	#	ensure output_height and output_width > 1
 	#	{{{
 	if [[ $output_height -lt 1 ]]; then

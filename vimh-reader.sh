@@ -41,9 +41,6 @@ _vimh_name_globalhistory="vimh.vi.txt"
 #	NOT IMPLEMENTED (slow) convert every path to realpath
 _vimh_flag_only_realpaths=0		
 
-##	path 'Vimh' uses for input
-#_vimh_path_input="$_vimh_path_localhistory"
-
 #	application to open files
 _vimh_editor="$EDITOR"
 

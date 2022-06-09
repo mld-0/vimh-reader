@@ -87,11 +87,13 @@ Vimh() {
 	local func_help="""$func_name, $func_about
 	-f | --filter	[val]	Filter input lines with value
 	-g | --global			Use combined logs from 'mld_out_cloud_shared'
+	-d | --dirs 	UNIMPLEMENTED Get list of unique dirs
 	-v | --debug
 	-h | --help
 	--version"""
 	local filter_str=""
 	local flag_global=0
+	local flag_dirs=0
 	#	parse args "$@"
 	#	{{{
 	if echo "${1:-}" | perl -wne '/^\s*-h|--help\s*$/ or exit 1'; then
@@ -102,11 +104,21 @@ Vimh() {
 		case $arg in
 			-f|--filter)
 				filter_str="$2"
+				#	{{{
+				if [[ -z "$filter_str" ]]; then
+					echo "$func_name, error, filter_str=($filter_str)" > /dev/stderr
+					return 2
+				fi
+				#	}}}
 				shift
 				shift
 				;;
 			-g|--global)
 				flag_global=1
+				shift
+				;;
+			-d|--dirs)
+				flag_dirs=1
 				shift
 				;;
 			-h|--help)
@@ -135,6 +147,9 @@ Vimh() {
 
 	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
 	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" )
+	if [[ $flag_dirs -ne 0 ]]; then
+		unique_files=$( _Vimh_filter_only_dirs "$unique_files" )
+	fi
 
 	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
 	_Vimh_promptAndOpen "$unique_files"
@@ -165,6 +180,14 @@ _Vimh_get_uniquepaths() {
 		return 2
 	fi
 	#	}}}
+	#	require _vimh_flag_only_realpaths != 0
+	#	{{{
+	if [[ $_vimh_flag_only_realpaths -ne 0 ]]; then
+		echo "$func_name, error, _Vimh_filter_realpaths not available" > /dev/stderr
+		return 2
+		#files_list_str=$( _Vimh_filter_realpaths "$files_list_str" | tac | awk '!count[$0]++' | tac )
+	fi
+	#	}}}
 
 	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
 	local files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
@@ -177,13 +200,6 @@ _Vimh_get_uniquepaths() {
 	fi
 	#	}}}
 	files_list_str=$( _Vimh_filter_existing_paths "$files_list_str" )
-	#	{{{
-	if [[ ! $_vimh_flag_only_realpaths -eq 0 ]]; then
-		echo "$func_name, error, _Vimh_filter_realpaths not available" > /dev/stderr
-		return 2
-		#files_list_str=$( _Vimh_filter_realpaths "$files_list_str" | tac | awk '!count[$0]++' | tac )
-	fi
-	#	}}}
 	log_debug_vimh "$func_name, lines(files_list_str)=(`echo -n "$files_list_str" | wc -l`)"
 	echo "$files_list_str"
 }
@@ -237,6 +253,36 @@ _Vimh_filter_existing_paths() {
 	done
 }
 
+_Vimh_filter_only_dirs() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+	fi
+	#	}}}
+	local IFS_temp=$IFS
+	IFS=$nl
+	local unique_files=( $( echo "${1:-}" ) )
+	IFS=$IFS_temp
+	local result_str=""
+	for f in "${unique_files[@]}"; do
+		if [[ -d $f ]]; then
+			result_str=$result_str$nl$f
+		else
+			result_str=$result_str$nl`dirname $f`
+		fi
+	done
+	if [[ -z "$result_str" ]]; then
+		echo "$result_str"
+	else
+		echo "$result_str" | grep -v "^$" | tac | awk '!count[$0]++' | tac
+	fi
+}
+
 #	Ongoing: 2022-06-06T02:42:37AEST can't use subshells if we want our use of 'cd' to effect the caller(?)
 _Vimh_promptAndOpen() {
 	#	{{{
@@ -253,6 +299,13 @@ _Vimh_promptAndOpen() {
 	local IFS_temp=$IFS; IFS=$nl;
 	local prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" | sed "s|$HOME|~|g" ) )
 	IFS=$IFS_temp
+	#	validate: prompt_files
+	#	{{{
+	if [[ ${#prompt_files[@]} -le 0 ]]; then
+		echo "$func_name, error, len(prompt_files)=(${#prompt_files[@]})" > /dev/stderr
+		return 2
+	fi
+	#	}}}
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 
 	_Vimh_print_prompt_files "${prompt_files[@]}" 
@@ -385,18 +438,21 @@ _Vimh_cd_and_open() {
 	#	}}}
 	local path_open="$1"
 	#	{{{
-	if [[ ! -f "$path_open" ]]; then
+	if [[ ! -d "$path_open" ]]; then
 		echo "$func_name, error, not found, path_open=($path_open)" > /dev/stderr
 		return 2
 	fi
 	#	}}}
-	local path_open_dir=$( dirname "$path_open" )
-
-	echo "cd $path_open_dir"
-	cd "$path_open_dir"
-
-	echo "$_vimh_editor \"$path_open\""
-	$_vimh_editor "$path_open"
+	if [[ ! -d "$path_open" ]]; then
+		local path_open_dir=$( dirname "$path_open" )
+		echo cd "$path_open_dir"
+		cd "$path_open_dir"
+		echo $_vimh_editor "$path_open"
+		$_vimh_editor "$path_open"
+	else
+		echo cd "$path_open"
+		cd "$path_open"
+	fi
 }
 
 _Vimh_Update_GlobalHistory() {

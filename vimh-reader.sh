@@ -34,9 +34,10 @@ _vimh_version="0.1"
 #	local history file
 _vimh_path_localhistory="$HOME/.vimh"
 
-#	NOT IMPLEMENTED global history 
+#	global history 
 _vimh_path_dir_globalhistory="$mld_out_cloud_shared/combined-logs"
 _vimh_name_globalhistory="vimh.vi.txt"
+
 #	NOT IMPLEMENTED (slow) convert every path to realpath
 _vimh_flag_only_realpaths=0		
 

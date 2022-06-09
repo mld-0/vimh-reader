@@ -58,13 +58,13 @@ if [[ ! -f "$_vimh_path_localhistory" ]]; then
 	echo "vimh, warning, not found, _vimh_path_localhistory=($_vimh_path_localhistory)" > /dev/stderr
 fi
 if [[ ! -d "$_vimh_path_dir_globalhistory" ]]; then
-	echo "vimh, warning, not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
+	echo "vimh, warning, dir not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
 fi
 if [[ ! -x "$_vimh_editor" ]]; then
-	echo "vimh, warning, not found, _vimh_editor=($_vimh_editor)" > /dev/stderr
+	echo "vimh, warning, exe not found, _vimh_editor=($_vimh_editor)" > /dev/stderr
 fi
 if [[ ! -f "$mld_log_vimh" ]]; then
-	echo "vimh, warning, not found, mld_log_vim=($mld_log_vim)" > /dev/stderr
+	echo "vimh, warning, file not found, mld_log_vim=($mld_log_vim)" > /dev/stderr
 fi
 if [[ ! `readlink -f "$_vimh_path_localhistory"` == "$mld_log_vimh" ]]; then
 	echo "vimh, warning, _vimh_path_localhistory=($_vimh_path_localhistory) does not link to mld_log_vimh=($mld_log_vimh)"  > /dev/stderr
@@ -176,7 +176,7 @@ _Vimh_get_uniquepaths() {
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
-		echo "$func_name, error, not found, path_input=($path_input)" > /dev/stderr
+		echo "$func_name, error, file not found, path_input=($path_input)" > /dev/stderr
 		return 2
 	fi
 	#	}}}
@@ -222,7 +222,7 @@ _Vimh_read_paths_in_file() {
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
-		echo "$func_name, error, not found, path_input=($path_input)" > /dev/stderr
+		echo "$func_name, error, file not found, path_input=($path_input)" > /dev/stderr
 		return 2
 	fi
 	#	}}}
@@ -437,8 +437,9 @@ _Vimh_cd_and_open() {
 	fi
 	#	}}}
 	local path_open="$1"
+	#	validate: path_open
 	#	{{{
-	if [[ ! -d "$path_open" ]]; then
+	if [[ ! -e "$path_open" ]]; then
 		echo "$func_name, error, not found, path_open=($path_open)" > /dev/stderr
 		return 2
 	fi
@@ -505,7 +506,7 @@ _Vimh_GetPath_GlobalHistory() {
 	#	validate: _vimh_path_dir_globalhistory, _vimh_name_globalhistory
 	#	{{{
 	if [[ ! -d "$_vimh_path_dir_globalhistory" ]]; then
-		echo "$func_name, error, not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
+		echo "$func_name, error, dir not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
 		return 2
 	fi
 	if [[ -z "$_vimh_name_globalhistory" ]]; then
@@ -532,7 +533,7 @@ _Vimh_GetPaths_CloudHistories() {
 	#	validate existance: _vimh_path_dir_globalhistory
 	#	{{{
 	if [[ ! -d "$_vimh_path_dir_globalhistory" ]]; then
-		echo "$func_name, error, not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
+		echo "$func_name, error, dir not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
 		return 2
 	fi
 	#	}}}
@@ -552,7 +553,7 @@ _Vimh_GetPaths_CloudHistories() {
 		#	validate: f
 		#	{{{
 		if [[ ! -f "$f" ]]; then
-			echo "$func_name, error, not found, f=($f)" > /dev/stderr
+			echo "$func_name, error, file not found, f=($f)" > /dev/stderr
 			return 2
 		fi
 		#	}}}

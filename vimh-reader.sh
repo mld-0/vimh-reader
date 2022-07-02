@@ -153,6 +153,7 @@ Vimh() {
 	flag_debug_vimh=$previous_flag_debug_vimh
 }
 
+
 #	Test: 2022-06-06T03:16:09AEST are _Vimh_get_uniquepaths outputs each unique?
 #	Ongoing: 2022-06-06T01:18:36AEST use of 'echo' with/without '-n'  (would it change anything) (anywhere?)
 #	Ongoing: 2022-06-05T21:28:54AEST would it be faster to filter for existance before filtering for uniqueness? [...] new vimh is somehow slower than old one?
@@ -226,6 +227,7 @@ _Vimh_read_paths_in_file() {
 	cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' 
 }
 
+
 _Vimh_filter_existing_paths() {
 	#	{{{
 	local func_name=""
@@ -250,6 +252,7 @@ _Vimh_filter_existing_paths() {
 		fi
 	done
 }
+
 
 _Vimh_exclude_files() {
 	#	{{{
@@ -297,6 +300,7 @@ _Vimh_filter_only_dirs() {
 	echo "$result_str" | grep -v "^$" | tac | awk '!count[$0]++' | tac
 }
 
+
 _Vimh_exclude_dirs() {
 	#	{{{
 	local func_name=""
@@ -312,6 +316,7 @@ _Vimh_exclude_dirs() {
 	paths_str=$( echo "$paths_str" | grep -v "^$HOME$" ) 
 	echo "$paths_str"
 }
+
 
 #	Ongoing: 2022-06-06T02:42:37AEST can't use subshells if we want our use of 'cd' to effect the caller(?)
 _Vimh_promptAndOpen() {
@@ -348,6 +353,7 @@ _Vimh_promptAndOpen() {
 
 	_Vimh_cd_and_open "$user_selection_path"
 }
+
 
 #	Ongoing: 2022-06-05T20:15:18AEST how to handle 'terminal window shorter than 4 / narrower than 12' case?
 _Vimh_truncate_paths_to_screen() {
@@ -391,6 +397,7 @@ _Vimh_truncate_paths_to_screen() {
 	done
 }
 
+
 #	Test: 2022-06-06T03:23:19AEST _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') is not tricked by filenames/filepaths with spaces
 _Vimh_print_prompt_files() {
 	#	{{{
@@ -413,6 +420,7 @@ _Vimh_print_prompt_files() {
 		i=$(( $i - 1 ))
 	done
 }
+
 
 _Vimh_promptUser_selectPath() {
 	#	{{{
@@ -457,6 +465,7 @@ _Vimh_promptUser_selectPath() {
 	echo "$user_selection_path"
 }
 
+
 _Vimh_cd_and_open() {
 	#	{{{
 	local func_name=""
@@ -487,6 +496,7 @@ _Vimh_cd_and_open() {
 		cd "$path_open"
 	fi
 }
+
 
 _Vimh_Update_GlobalHistory() {
 	#	{{{
@@ -523,6 +533,7 @@ _Vimh_Update_GlobalHistory() {
 	cat "$path_temp" | sort -h > "$path_global"
 }
 
+
 _Vimh_GetPath_GlobalHistory() {
 	#	{{{
 	local func_name=""
@@ -549,6 +560,7 @@ _Vimh_GetPath_GlobalHistory() {
 	log_debug_vimh "$func_name, path_str=($path_str)"
 	echo "$path_str"
 }
+
 
 _Vimh_GetPaths_CloudHistories() {
 	#	{{{

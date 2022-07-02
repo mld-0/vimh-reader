@@ -239,8 +239,10 @@ _Vimh_filter_existing_paths() {
 	#	}}}
 	local paths_list_str="${1:-}"
 	paths_list_str=$( _Vimh_exclude_files "$paths_list_str" )
-	local IFS=$nl
+	local IFS_temp=$IFS
+	IFS=$nl
 	local paths_list=( $( echo "$paths_list_str" ) ) 
+	IFS=$IFS_temp
 	for loop_path in "${paths_list[@]}"; do
 		if [[ -f "$loop_path" ]]; then
 			loop_path=$( echo -n "$loop_path" )
@@ -277,8 +279,10 @@ _Vimh_filter_only_dirs() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
-	local IFS=$nl
+	local IFS_temp=$IFS
+	IFS=$nl
 	local unique_files=( $( echo "${1:-}" ) )
+	IFS=$IFS_temp
 	local result_str=""
 	for f in "${unique_files[@]}"; do
 		if [[ ! -d $f ]]; then
@@ -322,8 +326,10 @@ _Vimh_promptAndOpen() {
 	fi
 	#	}}}
 	local unique_files="${1:-}"
-	local IFS=$nl
+	local IFS_temp=$IFS
+	IFS=$nl
 	local prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" ) )
+	IFS=$IFS_temp
 	#	validate: prompt_files
 	#	{{{
 	if [[ ${#prompt_files[@]} -le 0 ]]; then
@@ -369,8 +375,10 @@ _Vimh_truncate_paths_to_screen() {
 	#	}}}
 	log_debug_vimh "$func_name, output_height=($output_height), output_width=($output_width)"
 
-	local IFS=$nl
+	local IFS_temp=$IFS
+	IFS=$nl
 	local prompt_files=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
+	IFS=$IFS_temp
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 
 	for loop_file in "${prompt_files[@]}"; do
@@ -492,8 +500,10 @@ _Vimh_Update_GlobalHistory() {
 	fi
 	#	}}}
 	local path_global=$( _Vimh_GetPath_GlobalHistory )
-	local IFS=$nl
+	local IFS_temp=$IFS
+	IFS=$nl
 	local path_locals=( $( _Vimh_GetPaths_CloudHistories ) )
+	IFS=$IFS_temp
 	local path_temp=$( mktemp )
 	#	remove existing: path_global, path_temp
 	#	{{{
@@ -558,8 +568,10 @@ _Vimh_GetPaths_CloudHistories() {
 		return 2
 	fi
 	#	}}}
-	local IFS=$nl
+	local IFS_temp=$IFS
+	IFS=$nl
 	local result=( $( find $_vimh_path_dir_globalhistory/*/$_vimh_name_globalhistory -print ) )
+	IFS=$IFS_temp
 	#	validate: result_str
 	#	{{{
 	if [[ "${#result[@]}" -le 0 ]]; then

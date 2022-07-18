@@ -19,15 +19,11 @@ tab=$'\t'
 #	Ongoing: 2022-06-06T01:23:39AEST ';' after command with redirection to /dev/[stderr|null]?
 #	Ongoing: 2022-06-06T02:52:22AEST for 'cd' to work, none of the function calls leading to it can be in subshells (and we would have to use temp files (or global vars, or other dubious methods) if we wanted to return data from them) [...] (is that we find we were not doing so even before considering this possible problem indiciative of <good> design (vis-a-vis dataflow)?) 
 #	Ongoing: 2022-06-06T03:07:33AEST (don't put any '|' in $HOME)
+#	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths'
 #	}}}
-flag_debug_vimh=1
-log_debug_vimh() {
-#	{{{
-	if [[ $flag_debug_vimh -ne 0 ]]; then
-		echo "$@" > /dev/stderr
-	fi
-}
-#	}}}
+
+_vimh_flag_debug=0
+log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
 
 _vimh_version="0.1"
 
@@ -45,7 +41,7 @@ _vimh_flag_only_realpaths=0
 _vimh_editor="$EDITOR"
 
 #	number of lines to given number of lines
-_vimh_lines_limit=25000
+_vimh_lines_limit=50000
 
 
 #	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh
@@ -79,7 +75,7 @@ Vimh() {
 	fi
 	#	}}}
 	local func_about="about"
-	local previous_flag_debug_vimh=$flag_debug_vimh
+	local previous__vimh_flag_debug=$_vimh_flag_debug
 	local func_help="""$func_name, $func_about
 	-f | --filter	[val]	Filter input lines with value
 	-g | --global			Use combined logs from 'mld_out_cloud_shared'
@@ -123,7 +119,7 @@ Vimh() {
 				shift
 				;;
 			-v|--debug)
-				flag_debug_vimh=1
+				_vimh_flag_debug=1
 				shift
 				;;
 			--version)
@@ -150,7 +146,7 @@ Vimh() {
 	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
 	_Vimh_promptAndOpen "$unique_files"
 
-	flag_debug_vimh=$previous_flag_debug_vimh
+	_vimh_flag_debug=$previous__vimh_flag_debug
 }
 
 
@@ -214,8 +210,6 @@ _Vimh_read_paths_in_file() {
 	#	}}}
 	local path_input="${1:-}"
 	local filter_str="${2:-}"
-	log_debug_vimh "$func_name, path_input=($path_input)"
-	log_debug_vimh "$func_name, filter_str=($filter_str)"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -223,6 +217,17 @@ _Vimh_read_paths_in_file() {
 		return 2
 	fi
 	#	}}}
+	#	TODO: 2022-07-18T21:29:45AEST vimh-reader, oldest_date_included, report delta-now
+	oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+
+	#	log_debub_vimh, path_input, filter_str, _vimh_lines_limit, oldest_date_included
+	#	{{{
+	log_debug_vimh "$func_name, path_input=($path_input)"
+	log_debug_vimh "$func_name, filter_str=($filter_str)"
+	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
+	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)" > /dev/stderr
+	#	}}}
+
 	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?)
 	cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' 
 }
@@ -605,6 +610,7 @@ _Vimh_GetPaths_CloudHistories() {
 }
 
 
+#	{{{
 #	Ongoing: 2022-06-04T23:17:26AEST problematic functions:
 #_Vimh_filterLines_lastUnique() {
 #	#	{{{
@@ -706,5 +712,6 @@ _Vimh_GetPaths_CloudHistories() {
 #if [[ "$check_sourced" -eq 0 ]]; then
 #	vimh "$@"
 #fi
+#	}}}
 
 

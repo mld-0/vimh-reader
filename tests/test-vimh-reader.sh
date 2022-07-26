@@ -39,6 +39,8 @@ source "$test_script"
 flag_debug_vimh=1
 
 
+
+
 test_Vimh_read_paths_in_file() {
 	#	{{{
 	local func_name=""
@@ -126,7 +128,7 @@ test_Vimh_get_uniquepaths() {
 }
 
 
-test_Vimh_filter_existing_paths() {
+test_Vimh_only_existing_files() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -150,7 +152,7 @@ test_Vimh_filter_existing_paths() {
 /tmp/test-vimh-reader/hij.txt
 /tmp/test-vimh-reader/zxy.txt
 /tmp/test-vimh-reader/lmn.txt"
-	result_str=$( _Vimh_filter_existing_paths "$test_str" )
+	result_str=$( _Vimh_only_existing_files "$test_str" )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
 		diff <( echo $result_str ) <( echo $expected_str )
@@ -161,7 +163,7 @@ test_Vimh_filter_existing_paths() {
 	test_str=""
 	expected_str=\
 ""
-	result_str=$( _Vimh_filter_existing_paths "$test_str" )
+	result_str=$( _Vimh_only_existing_files "$test_str" )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 2\n"
 		diff <( echo $result_str ) <( echo $expected_str )
@@ -174,7 +176,7 @@ test_Vimh_filter_existing_paths() {
 	test_str=$nl$( create_test_str_files_list )$nl
 	expected_str=\
 ""
-	result_str=$( _Vimh_filter_existing_paths "$test_str" )
+	result_str=$( _Vimh_only_existing_files "$test_str" )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
 		diff <( echo $result_str ) <( echo $expected_str )
@@ -185,7 +187,7 @@ test_Vimh_filter_existing_paths() {
 	echo "$func_name, DONE"
 }
 
-test_Vimh_filter_only_dirs() {
+test_Vimh_only_dirs() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -201,7 +203,7 @@ test_Vimh_filter_only_dirs() {
 	local result_str=""
 
 	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
-	result_str=$( _Vimh_filter_only_dirs "$test_str" )
+	result_str=$( _Vimh_only_dirs "$test_str" )
 	expected_str=\
 "/tmp/test-vimh-reader"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
@@ -212,7 +214,7 @@ test_Vimh_filter_only_dirs() {
 
 	#	Test empty input -> empty output
 	test_str=""
-	result_str=$( _Vimh_filter_only_dirs "$test_str" )
+	result_str=$( _Vimh_only_dirs "$test_str" )
 	expected_str=\
 ""
 	if [[ ! "$result_str" == "$expected_str" ]]; then
@@ -327,8 +329,8 @@ setup_tmp_dir_with_files
 
 test_Vimh_read_paths_in_file
 test_Vimh_get_uniquepaths
-test_Vimh_filter_existing_paths
-test_Vimh_filter_only_dirs
+test_Vimh_only_existing_files
+test_Vimh_only_dirs
 
 #	UNIMPLEMENTED
 #test_Vimh_truncate_paths_to_screen

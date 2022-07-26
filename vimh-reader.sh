@@ -22,7 +22,7 @@ tab=$'\t'
 #	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths'
 #	}}}
 
-_vimh_flag_debug=0
+_vimh_flag_debug=1
 log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
 
 _vimh_version="0.1"
@@ -62,6 +62,8 @@ if [[ ! `readlink -f "$_vimh_path_localhistory"` == "$mld_log_vimh" ]]; then
 	echo "vimh, warning, _vimh_path_localhistory=($_vimh_path_localhistory) does not link to mld_log_vimh=($mld_log_vimh)"  > /dev/stderr
 fi
 #	}}}
+
+
 
 Vimh() {
 	#	{{{
@@ -140,7 +142,7 @@ Vimh() {
 	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
 	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" )
 	if [[ $flag_dirs -ne 0 ]]; then
-		unique_files=$( _Vimh_filter_only_dirs "$unique_files" )
+		unique_files=$( _Vimh_only_dirs "$unique_files" )
 	fi
 
 	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
@@ -150,10 +152,13 @@ Vimh() {
 }
 
 
+
+_Vimh_get_uniquepaths() {
+#	{{{
 #	Test: 2022-06-06T03:16:09AEST are _Vimh_get_uniquepaths outputs each unique?
 #	Ongoing: 2022-06-06T01:18:36AEST use of 'echo' with/without '-n'  (would it change anything) (anywhere?)
 #	Ongoing: 2022-06-05T21:28:54AEST would it be faster to filter for existance before filtering for uniqueness? [...] new vimh is somehow slower than old one?
-_Vimh_get_uniquepaths() {
+#	}}}
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -173,14 +178,11 @@ _Vimh_get_uniquepaths() {
 		return 2
 	fi
 	#	}}}
-	#	require _vimh_flag_only_realpaths != 0
-	#	{{{
 	if [[ $_vimh_flag_only_realpaths -ne 0 ]]; then
 		echo "$func_name, error, _Vimh_filter_realpaths not available" > /dev/stderr
 		return 2
 		#files_list_str=$( _Vimh_filter_realpaths "$files_list_str" | tac | awk '!count[$0]++' | tac )
 	fi
-	#	}}}
 
 	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
 	local files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
@@ -192,7 +194,7 @@ _Vimh_get_uniquepaths() {
 		return 2
 	fi
 	#	}}}
-	files_list_str=$( _Vimh_filter_existing_paths "$files_list_str" )
+	files_list_str=$( _Vimh_only_existing_files "$files_list_str" )
 	log_debug_vimh "$func_name, lines(files_list_str)=(`echo -n "$files_list_str" | wc -l`)"
 	echo "$files_list_str"
 }
@@ -217,23 +219,20 @@ _Vimh_read_paths_in_file() {
 		return 2
 	fi
 	#	}}}
+
 	#	TODO: 2022-07-18T21:29:45AEST vimh-reader, oldest_date_included, report delta-now
 	oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-
-	#	log_debub_vimh, path_input, filter_str, _vimh_lines_limit, oldest_date_included
-	#	{{{
 	log_debug_vimh "$func_name, path_input=($path_input)"
 	log_debug_vimh "$func_name, filter_str=($filter_str)"
 	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
 	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)" > /dev/stderr
-	#	}}}
 
 	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?)
 	cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' 
 }
 
 
-_Vimh_filter_existing_paths() {
+_Vimh_only_existing_files() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -245,7 +244,7 @@ _Vimh_filter_existing_paths() {
 	fi
 	#	}}}
 	local paths_list_str="${1:-}"
-	paths_list_str=$( _Vimh_exclude_files "$paths_list_str" )
+	paths_list_str=$( _Vimh_filter_files "$paths_list_str" )
 	local IFS_temp=$IFS
 	IFS=$nl
 	local paths_list=( $( echo "$paths_list_str" ) ) 
@@ -259,7 +258,7 @@ _Vimh_filter_existing_paths() {
 }
 
 
-_Vimh_exclude_files() {
+_Vimh_filter_files() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -276,7 +275,7 @@ _Vimh_exclude_files() {
 }
 
 
-_Vimh_filter_only_dirs() {
+_Vimh_only_dirs() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -298,7 +297,7 @@ _Vimh_filter_only_dirs() {
 		fi
 		result_str=$result_str$nl$f
 	done
-	result_str=$( _Vimh_exclude_dirs "$result_str" )
+	result_str=$( _Vimh_filter_dirs "$result_str" )
 	if [[ -z "$result_str" ]]; then
 		return
 	fi
@@ -306,7 +305,7 @@ _Vimh_filter_only_dirs() {
 }
 
 
-_Vimh_exclude_dirs() {
+_Vimh_filter_dirs() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 

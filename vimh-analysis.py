@@ -20,77 +20,83 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 #   Ongoing: 2022-07-26T22:52:14AEST fast str2dt method(?)
 #   }}}
 
-path_input = os.path.join(os.getenv('HOME'), '.vimh')
-assert os.path.isfile(path_input)
+#   Reports: 
+#           count-unique (per-interval)
+#           last-unique (per-interval?)
+#           datetime-splits (sum per-interval, per-unique?)
 
 class VimhAnalysis:
 
-    #   Ongoing: 2022-07-26T22:52:45AEST 'groupByDay()' return nested-index df, or list of df?
+    #   Ongoing: 2022-07-28T22:47:49AEST is 'loop_df' a copy of (or window into) origional dataframe?
+    #   Ongoing: 2022-07-26T22:52:45AEST 'groupByDay()' return nested-index dataframe, or list-of-dataframes?
     @staticmethod
-    def countUniquePerDay(df: pd.DataFrame) -> pd.DataFrame:
-        """Group by day and count unique values in a given column"""
-        col_count_unique = 'filepath'
+    def countUniquePerDay(df: pd.DataFrame, col_count_unique: str='filepath') -> pd.DataFrame:
+        """Group by day and count unique values in a given column""" 
         #   Produces result with multiindex: [date,path] = count
         df_countUniqueByDay = df.groupby(pd.Grouper(key='date', axis=0, freq='D'))[col_count_unique].value_counts()
         logging.debug("df_countUniqueByDay=(%s)" % df_countUniqueByDay)
-        logging.debug("df_countUniqueByDay.index=(%s)" % df_countUniqueByDay.index)
-
-        #   Iterate over unique dates
-        for date, loop_df in df_countUniqueByDay.groupby(level=0):
-            #   Unique date
-            print(date)
-            #   Remove unique date from loop_df
-            loop_df = loop_df.droplevel(0)
-            print(loop_df)
-            #   Convert 'loop_df' to List[Tuple[str,int]]
-            #loop_unique_paths = loop_df.index
-            #loop_unique_counts = loop_df.tolist()
-            #loop_unique = list(zip(loop_unique_paths, loop_unique_counts))
-            #print(loop_unique)
-
         return df_countUniqueByDay
-
+        #   Conversion to 'List[ pd.DataFrame ]'
+        #   {{{
+        #result = [ x for x in df_countUniqueByDay.groupby(level=0) ]
+        #logging.debug("result=(%s)" % result)
+        #return result
+        #   }}}
+        #   Conversion to 'List[ Tuple[ List[str], List[str], List[int] ] ]'
+        #   {{{
+        #result = []
+        #for date, loop_df in df_countUniqueByDay.groupby(level=0):
+        #    date_str = date.strftime("%F")
+        #    loop_df_flat = loop_df.droplevel(0)
+        #    loop_uniques = loop_df_flat.index.to_list()
+        #    loop_counts = loop_df_flat.to_list()
+        #    result.append( ( date_str, loop_uniques, loop_counts ) )
+        #logging.debug("result=(%s)" % pprint.pformat(result))
+        #return result
+        #   }}}
 
     @staticmethod
-    def filterLastUniqueByColumn(df: pd.DataFrame, col: int) -> pd.DataFrame:
+    def lastUniqueByColumn(df: pd.DataFrame, col_last_unique: str='filepath') -> pd.DataFrame:
         """Keep only records which have the last instance of each given unique value in a given column"""
-        raise NotImplementedError()
+        df_lastUnique = df.drop_duplicates(subset=col_last_unique, keep='last')
+        logging.debug("df_lastUnique=(%s)" % df_lastUnique)
+        return df_lastUnique
+
     @staticmethod
-    def substituteHomeStr(df: pd.DataFrame, cols: List[int]) -> pd.DataFrame:
-        """Replaces instances of '$HOME' with '~' in df (for given columns 'cols') (which must be strings?)"""
-        raise NotImplementedError()
-    @staticmethod
-    def filterEmptyByCol(df: pd.DataFrame, col: int):
-        """Remove records where value in given column is empty (NaN) (in-place?)"""
+    def substituteHomeStr(df: pd.DataFrame) -> pd.DataFrame:
+        """Replaces instances of '$HOME' with '~' in df ~~(for given columns 'col_replace' (which must be strings?))~~ (for all columns that are strings?) """
         raise NotImplementedError()
 
+    @staticmethod
+    def filterEmptyByCol(df: pd.DataFrame, col_filter_by: str):
+        """Remove records where value in given column i'col_filter_by' is empty (NaN?) (in-place?)"""
+        raise NotImplementedError()
 
     @staticmethod
     def parseDateTimes(df: pd.DataFrame, col: str):
-        """Convert column containing iso-datetime strings to 'date' and 'time' columns"""
+        """Convert column containing iso-datetime strings to 'date' and 'time' dt.date/time columns"""
         def convertStringToDateTime(df: pd.DataFrame):
             iso_fmt = "%Y-%m-%dT%H:%M:%S%z"
             str2dt = lambda x: datetime.datetime.strptime(x, iso_fmt)
             df[col] = pd.to_datetime(df[col].apply(str2dt), utc=True)
         def splitDateTimeColumn(df: pd.DataFrame):
-            df.insert(0, 'date', df['datetime'].dt.date)
-            df.insert(1, 'time', df['datetime'].dt.time)
+            df.insert(0, 'date', df[col].dt.date)
+            df.insert(1, 'time', df[col].dt.time)
             df.drop(col, axis=1, inplace=True)
             df['date'] = pd.to_datetime(df['date'])
             df['time'] = df['time']
-            #logging.debug("df['date']=(%s)" % df['date'])
-            #logging.debug("df['time']=(%s)" % df['time'])
-            #logging.debug("type(df['time'].at(0))=(%s)" % type(df['time'][0]))
         convertStringToDateTime(df)
         splitDateTimeColumn(df)
 
 
-    #   Continue: 2022-07-26T22:50:06AEST pd.read_csv -> limit to last N lines?
     @staticmethod
     def read_vimh_df(path_input: str) -> pd.DataFrame:
         columns = [ 'datetime', 'filename', 'host', 'action', 'filepath', 'realpath', ]
         df = pd.read_csv(path_input, delimiter='\t', names=columns)
-        #df = df.tail(10000)
+
+        #df = df.tail(10000) 
+        #logging.debug("tail(10000)")
+
         VimhAnalysis.parseDateTimes(df, 'datetime')
         logging.debug("df=(%s)" % df)
         return df
@@ -103,10 +109,12 @@ def runCountUniquePathsPerDay():
 
 def runFilterLastUniquePaths():
     df = VimhAnalysis.read_vimh_df(path_input)
-    raise NotImplementedError()
+    df_lastUnique = VimhAnalysis.lastUniqueByColumn(df)
 
 
 if __name__ == '__main__':
+    path_input = os.path.join(os.getenv('HOME'), '.vimh')
+    assert os.path.isfile(path_input)
     runCountUniquePathsPerDay()
     #runFilterLastUniquePaths()
 

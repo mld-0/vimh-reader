@@ -74,7 +74,7 @@ class VimhAnalysis:
 
     @staticmethod
     def parseDateTimes(df: pd.DataFrame, col: str):
-        """Convert column containing iso-datetime strings to 'date' and 'time' dt.date/time columns"""
+        """Convert df iso-datetime column strings to columns date/time"""
         def convertStringToDateTime(df: pd.DataFrame):
             iso_fmt = "%Y-%m-%dT%H:%M:%S%z"
             str2dt = lambda x: datetime.datetime.strptime(x, iso_fmt)
@@ -88,16 +88,33 @@ class VimhAnalysis:
         convertStringToDateTime(df)
         splitDateTimeColumn(df)
 
-
     @staticmethod
     def read_vimh_df(path_input: str) -> pd.DataFrame:
         columns = [ 'datetime', 'filename', 'host', 'action', 'filepath', 'realpath', ]
         df = pd.read_csv(path_input, delimiter='\t', names=columns)
-
         #df = df.tail(10000) 
         #logging.debug("tail(10000)")
-
         VimhAnalysis.parseDateTimes(df, 'datetime')
+        logging.debug("df=(%s)" % df)
+        return df
+
+    @staticmethod
+    def reduceToDirs(df: pd.DataFrame, col: str='filepath'):
+        df[col] = df[col].apply(lambda x: os.path.dirname(x))
+        logging.debug("df=(%s)" % df)
+        return df
+
+    @staticmethod
+    def filterExisting(df: pd.DataFrame, col: str='filepath'):
+        does_not_exist = lambda x: not os.path.exists(x)
+        count_before_drop = len(df)
+        rows_to_drop = df[col].map(does_not_exist)
+        df.drop(df[rows_to_drop].index, inplace=True)
+        count_after_drop = len(df)
+        count_rows_to_drop = len(rows_to_drop[rows_to_drop])
+        logging.debug("count_before_drop=(%s)" % count_before_drop)
+        logging.debug("count_rows_to_drop=(%s)" % count_rows_to_drop)
+        logging.debug("count_after_drop=(%s)" % count_after_drop)
         logging.debug("df=(%s)" % df)
         return df
 
@@ -105,7 +122,34 @@ class VimhAnalysis:
 
 def runCountUniquePathsPerDay():
     df = VimhAnalysis.read_vimh_df(path_input)
-    df_countUniqueByDay = VimhAnalysis.countUniquePerDay(df)
+    df = VimhAnalysis.countUniquePerDay(df)
+    print_df_countUniqueByDay(df)
+
+def runCountUniqueExistingPathsPerDay():
+    df = VimhAnalysis.read_vimh_df(path_input)
+    df = VimhAnalysis.filterExisting(df)
+    df = VimhAnalysis.countUniquePerDay(df)
+    print_df_countUniqueByDay(df)
+
+def runCountUniqueDirsPerDay():
+    df = VimhAnalysis.read_vimh_df(path_input)
+    df = VimhAnalysis.reduceToDirs(df)
+    df = VimhAnalysis.countUniquePerDay(df)
+    print_df_countUniqueByDay(df)
+
+def runCountUniqueExistingDirsPerDay():
+    df = VimhAnalysis.read_vimh_df(path_input)
+    df = VimhAnalysis.reduceToDirs(df)
+    df = VimhAnalysis.filterExisting(df)
+    df = VimhAnalysis.countUniquePerDay(df)
+    print_df_countUniqueByDay(df)
+
+def print_df_countUniqueByDay(df):
+    for date, df_day in df.groupby(level=0):
+        df_day = df_day.droplevel(0)
+        print(date.strftime("%F"))
+        print(df_day.to_string(header=False))
+        print()
 
 def runFilterLastUniquePaths():
     df = VimhAnalysis.read_vimh_df(path_input)
@@ -115,6 +159,11 @@ def runFilterLastUniquePaths():
 if __name__ == '__main__':
     path_input = os.path.join(os.getenv('HOME'), '.vimh')
     assert os.path.isfile(path_input)
+
     runCountUniquePathsPerDay()
+    #runCountUniqueDirsPerDay()
+    #runCountUniqueExistingPathsPerDay()
+    #runCountUniqueExistingDirsPerDay()
+
     #runFilterLastUniquePaths()
 

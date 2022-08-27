@@ -42,6 +42,7 @@ _vimh_editor="$EDITOR"
 
 #	number of lines to given number of lines
 _vimh_lines_limit=50000
+#_vimh_lines_limit=0
 
 
 #	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh
@@ -62,6 +63,59 @@ if [[ ! `readlink -f "$_vimh_path_localhistory"` == "$mld_log_vimh" ]]; then
 	echo "vimh, warning, _vimh_path_localhistory=($_vimh_path_localhistory) does not link to mld_log_vimh=($mld_log_vimh)"  > /dev/stderr
 fi
 #	}}}
+
+
+##	UNIMPLEMENTED
+#_Vimh_get_uniquepathCounts() {
+#	#	{{{
+#	local func_name=""
+#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+#		func_name=${funcstack[1]:-}
+#	elif [[ -n "${BASH_VERSION:-}" ]]; then
+#		func_name="${FUNCNAME[0]:-}"
+#	else
+#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+#	fi
+#	#	}}}
+#	local path_input="${1:-}"
+#	local filter_str="${2:-}"
+#	#	validate: path_input
+#	#	{{{
+#	if [[ ! -f "$path_input" ]]; then
+#		echo "$func_name, error, file not found, path_input=($path_input)" > /dev/stderr
+#		return 2
+#	fi
+#	#	}}}
+#
+#	#	Ongoing: 2022-08-28T01:11:40AEST this use of 'grep "$filter_str"' is problematic (for an undiscovered reason)
+#	#oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+#	oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+#
+#	log_debug_vimh "$func_name, path_input=($path_input)"
+#	log_debug_vimh "$func_name, filter_str=($filter_str)"
+#	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
+#	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)" > /dev/stderr
+#	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
+#	#log_debug_vimh "$func_name, read_files_str=($read_files_str)" 
+#	local filesWithCounts=$( echo "$read_files_str" | sort -h | uniq -c | sort -h )
+#	log_debug_vimh "$func_name, filesWithCounts=($filesWithCounts)"
+#	local list_counts=$( echo "$filesWithCounts" | awk '{print $1}' )
+#	local list_files=$( echo "$filesWithCounts" | awk '{print $2}' )
+#	log_debug_vimh "$func_name, list_counts=($list_counts)"
+#	log_debug_vimh "$func_name, list_files=($list_files)"
+#}
+#Vimh_Counts() {
+#	#	{{{
+#	local func_name=""
+#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+#		func_name=${funcstack[1]:-}
+#	elif [[ -n "${BASH_VERSION:-}" ]]; then
+#		func_name="${FUNCNAME[0]:-}"
+#	else
+#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+#	fi
+#	#	}}}
+#}
 
 
 
@@ -88,6 +142,7 @@ Vimh() {
 	local filter_str=""
 	local flag_global=0
 	local flag_dirs=0
+
 	#	parse args "$@"
 	#	{{{
 	if echo "${1:-}" | perl -wne '/^\s*-h|--help\s*$/ or exit 1'; then
@@ -185,6 +240,9 @@ _Vimh_get_uniquepaths() {
 	fi
 
 	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
+	#	Ongoing: 2022-08-28T00:59:19AEST result is incorrect(?)
+	#log_debug_vimh "$func_name, read_files_str=($read_files_str)"
+
 	local files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
 
 	#	validate non-empty: files_list_str
@@ -194,8 +252,12 @@ _Vimh_get_uniquepaths() {
 		return 2
 	fi
 	#	}}}
-	files_list_str=$( _Vimh_only_existing_files "$files_list_str" )
-	log_debug_vimh "$func_name, lines(files_list_str)=(`echo -n "$files_list_str" | wc -l`)"
+
+	#	Ongoing: 2022-08-28T00:57:48AEST disabled as we investigate the 'broken' problem
+	#files_list_str=$( _Vimh_only_existing_files "$files_list_str" )
+	#log_debug_vimh "$func_name, lines(files_list_str)=(`echo -n "$files_list_str" | wc -l`)"
+	#log_debug_vimh "$func_name, files_list_str=($files_list_str)"
+
 	echo "$files_list_str"
 }
 
@@ -220,15 +282,28 @@ _Vimh_read_paths_in_file() {
 	fi
 	#	}}}
 
+
 	#	TODO: 2022-07-18T21:29:45AEST vimh-reader, oldest_date_included, report delta-now
-	oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+	#oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+	#youngest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	#oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+	#youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+
 	log_debug_vimh "$func_name, path_input=($path_input)"
 	log_debug_vimh "$func_name, filter_str=($filter_str)"
+	log_debug_vimh "$func_name, note: not using 'filter_str' -> reason it caused an issue unresolved"
 	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
-	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)" > /dev/stderr
+	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)"
+	log_debug_vimh "$func_name, youngest_date_included=($youngest_date_included)"
 
+	#	TODO: 2022-08-28T01:09:46AEST vimh-reader, identify reason passing log file through 'grep "$filter_str"' was causing issues
+	#	Ongoing: 2022-08-28T01:03:37AEST bug is with 'grep "$filter_str"'? [...] somehow, it is causing newer lines to be rejected? (even though those same lines worked when we threw away all but the last few thousand lines?) -> 
 	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?)
-	cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' 
+	#result_str=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+	result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+
+	#log_debug_vimh "$func_name, result_str=($result_str)"
+	echo "$result_str"
 }
 
 

@@ -65,7 +65,8 @@ fi
 #	}}}
 
 
-##	UNIMPLEMENTED
+##	UNIMPLEMENTED: _Vimh_get_uniquepathCounts
+#	{{{
 #_Vimh_get_uniquepathCounts() {
 #	#	{{{
 #	local func_name=""
@@ -116,7 +117,7 @@ fi
 #	fi
 #	#	}}}
 #}
-
+#	}}}
 
 
 Vimh() {
@@ -286,8 +287,8 @@ _Vimh_read_paths_in_file() {
 	#	TODO: 2022-07-18T21:29:45AEST vimh-reader, oldest_date_included, report delta-now
 	#oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
 	#youngest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
-	#oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-	#youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+	youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 
 	log_debug_vimh "$func_name, path_input=($path_input)"
 	log_debug_vimh "$func_name, filter_str=($filter_str)"

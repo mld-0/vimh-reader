@@ -36,9 +36,30 @@ files_prohbit=( "abc.t" "def.t" )
 
 echo source "$test_script" > /dev/stderr
 source "$test_script"
-flag_debug_vimh=1
+
+#flag_debug_vimh=1
+_vimh_flag_debug=1
 
 
+##	UNIMPLEMENTED, test_Vimh_get_uniquepathCounts
+#	{{{
+#test_Vimh_get_uniquepathCounts() {
+#	#	{{{
+#	local func_name=""
+#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+#		func_name=${funcstack[1]:-}
+#	elif [[ -n "${BASH_VERSION:-}" ]]; then
+#		func_name="${FUNCNAME[0]:-}"
+#	else
+#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+#	fi
+#	#	}}}
+#	local result_str=""
+#	local expected_str=""
+#	result_str=$( _Vimh_get_uniquepathCounts "$test_data_path" )
+#	echo "$func_name, DONE"
+#}
+#	}}}
 
 
 test_Vimh_read_paths_in_file() {
@@ -55,7 +76,7 @@ test_Vimh_read_paths_in_file() {
 	local result_str=""
 	local expected_str=""
 
-	#	Test without filter string
+	#	Test without filter_str
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" )
 	expected_str=$( cat "$test_data_path" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
@@ -63,13 +84,14 @@ test_Vimh_read_paths_in_file() {
 		exit 2
 	fi
 
-	#	Test with filter string
-	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
-	expected_str=$( cat "$test_data_path" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
-	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 2\n"
-		exit 2
-	fi
+#	Ongoing: 2022-08-28T22:34:09AEST 'filter_str' disabled pending investigation of problems it caused
+#	#	Test with filter_str
+#	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
+#	expected_str=$( cat "$test_data_path" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+#	if [[ ! "$result_str" == "$expected_str" ]]; then
+#		echo "$func_name, fail: 2\n"
+#		exit 2
+#	fi
 
 	echo "$func_name, DONE"
 }
@@ -88,7 +110,7 @@ test_Vimh_get_uniquepaths() {
 	local result_str=""
 	local expected_str=""
 
-	#	Test without filter str
+	#	Test without filter_str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" )
 	expected_str=\
 "/tmp/test-vimh-reader/def.txt
@@ -98,19 +120,22 @@ test_Vimh_get_uniquepaths() {
 /tmp/test-vimh-reader/zxy.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
 
-	#	Test with filter str
-	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
-	expected_str=\
-"/tmp/test-vimh-reader/abc.txt"
-	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 2\n"
-		diff <( echo $result_str ) <( echo $expected_str )
-		exit 2
-	fi
+#	Ongoing: 2022-08-28T22:32:59AEST 'filter_str' disabled pending investigation of problems it caused
+#	#	Test with filter_str
+#	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
+#	expected_str=\
+#"/tmp/test-vimh-reader/abc.txt"
+#	if [[ ! "$result_str" == "$expected_str" ]]; then
+#		echo "$func_name, fail: 2\n"
+#		diff <( echo $result_str ) <( echo $expected_str )
+#		exit 2
+#	fi
 
 	#	Test with test files deleted 
 	delete_test_files_in_tmp
@@ -326,6 +351,11 @@ create_test_str_files_list() {
 
 
 setup_tmp_dir_with_files
+
+
+#	UNIMPLEMENTED
+#test_Vimh_get_uniquepathCounts
+
 
 test_Vimh_read_paths_in_file
 test_Vimh_get_uniquepaths

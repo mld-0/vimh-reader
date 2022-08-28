@@ -98,8 +98,23 @@ main() {
 	#	(produces same lines as first grep command (see above))
 
 	#	TODO: 2022-08-28T23:27:09AEST vimh, (investigation) is null byte written to log when we open file with sudo?
-	#	TODO: 2022-08-28T23:27:48AEST vimh, (investigation) removing non-ascii data from text file
 
+	#	removing null bytes:
+	#		sed 's/\x0//g' 
+	#		tr -d '\000' 
+	#	(inplace): 
+	#		sed -i 's/\x0//g $path_file
+	#		tr -d '\000' < $path_in > $path_out
+
+	#	expected result
+	cat "$path_bak_vimh" | wc -l
+	#	using '--text' resolves the issue
+	cat "$path_bak_vimh" | grep --text "" | wc -l
+	#	removing null bytes resolves the issue.
+	cat "$path_bak_vimh" | sed 's/\x0//g' | grep "" | wc -l
+	cat "$path_bak_vimh" | tr -d '\000' | grep "" | wc -l
+
+	#	are null-bytes the only non-ascii bytes in the vimh file (recall: dashes that are not '-') (are they the only non-ascii bytes in the vimh file that cause problems) ... (presumedly, since we get a correct linecount when all we have removed is the null byte)?
 }
 
 main

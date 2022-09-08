@@ -25,7 +25,7 @@ tab=$'\t'
 _vimh_flag_debug=1
 log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
 
-_vimh_version="0.1"
+_vimh_version="0.1.1"
 
 #	local history file
 _vimh_path_localhistory="$HOME/.vimh"
@@ -44,7 +44,6 @@ _vimh_editor="$EDITOR"
 _vimh_lines_limit=50000
 #_vimh_lines_limit=0
 
-
 #	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh
 #	{{{
 if [[ ! -f "$_vimh_path_localhistory" ]]; then
@@ -59,11 +58,13 @@ fi
 if [[ ! -f "$mld_log_vimh" ]]; then
 	echo "vimh, warning, file not found, mld_log_vim=($mld_log_vim)" > /dev/stderr
 fi
+#	}}}
+#	validate: _vimh_path_localhistory -> mld_log_vimh
+#	{{{
 if [[ ! `readlink -f "$_vimh_path_localhistory"` == "$mld_log_vimh" ]]; then
 	echo "vimh, warning, _vimh_path_localhistory=($_vimh_path_localhistory) does not link to mld_log_vimh=($mld_log_vimh)"  > /dev/stderr
 fi
 #	}}}
-
 
 ##	UNIMPLEMENTED: _Vimh_get_uniquepathCounts
 #	{{{
@@ -242,11 +243,11 @@ _Vimh_get_uniquepaths() {
 	fi
 
 	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
-	log_debug_vimh "$func_name, lines(read_files_str)=(`echo -n $read_files_str | wc -l`)"
+	log_debug_vimh "$func_name, lines(read_files_str)=(`echo $read_files_str | wc -l`)"
 	#log_debug_vimh "$func_name, read_files_str=($read_files_str)"
 
 	local unique_files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
-	log_debug_vimh "$func_name, lines(unique_files_list_str)=(`echo -n $unique_files_list_str | wc -l`)"
+	log_debug_vimh "$func_name, lines(unique_files_list_str)=(`echo $unique_files_list_str | wc -l`)"
 	#log_debug_vimh "$func_name, unique_files_list_str=($unique_files_list_str)"
 
 	#	validate non-empty: unique_files_list_str
@@ -257,11 +258,11 @@ _Vimh_get_uniquepaths() {
 	fi
 	#	}}}
 
-	unique_files_list_str=$( _Vimh_only_existing_files "$unique_files_list_str" )
-	log_debug_vimh "$func_name, lines(unique_files_list_str)=(`echo -n "$unique_files_list_str" | wc -l`)"
-	#log_debug_vimh "$func_name, unique_files_list_str=($unique_files_list_str)"
+	existing_unique_files_list_str=$( _Vimh_only_existing_files "$unique_files_list_str" )
+	log_debug_vimh "$func_name, lines(existing_unique_files_list_str)=(`echo "$existing_unique_files_list_str" | wc -l`)"
+	#log_debug_vimh "$func_name, existing_unique_files_list_str=($existing_unique_files_list_str)"
 
-	echo "$unique_files_list_str"
+	echo "$existing_unique_files_list_str"
 }
 
 
@@ -291,26 +292,30 @@ _Vimh_read_paths_in_file() {
 	#	disabled grep filtering
 	#oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
 	#youngest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	#oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+	#youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 	#	}}}
-	oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-	youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	oldest_date_included=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+	youngest_date_included=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 
+	#	log_debug_vimh: path_input, filter_str, _vimh_lines_limit, oldest_date_included, youngest_date_included
+	#	{{{
 	log_debug_vimh "$func_name, path_input=($path_input)"
-	log_debug_vimh "$func_name, note: not using 'grep \"\$filter_str\"' -> reason it caused an issue unresolved"
+	#log_debug_vimh "$func_name, note: not using 'grep \"\$filter_str\"' -> reason it caused an issue unresolved [...] (re-enabled with '--text' flag)"
 	log_debug_vimh "$func_name, filter_str=($filter_str)"
 	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
 	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)"
 	log_debug_vimh "$func_name, youngest_date_included=($youngest_date_included)"
+	#	}}}
 
-	#	TODO: 2022-08-28T01:09:46AEST vimh-reader, identify reason passing log file through 'grep "$filter_str"' was causing issues
-	#	Ongoing: 2022-08-28T01:03:37AEST bug is with 'grep "$filter_str"'? [...] somehow, it is causing newer lines to be rejected? (even though those same lines worked when we threw away all but the last few thousand lines?) -> 
-	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?)
+	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?) [...] (I mean it does?) [...] (and we test for this?)
 	#	{{{
 	#	disabled grep filtering
 	#result_str=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+	#result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
 	#	}}}
-	result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
-	log_debug_vimh "$func_name, lines(result_str)=(`echo -n $result_str | wc -l`)"
+	result_str=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+	log_debug_vimh "$func_name, lines(result_str)=(`echo $result_str | wc -l`)"
 	#log_debug_vimh "$func_name, result_str=($result_str)"
 	echo "$result_str"
 }
@@ -354,7 +359,9 @@ _Vimh_filter_files() {
 	fi
 	#	}}}
 	local paths_str="${1:-}"
-	paths_str=$( echo "$paths_str" | grep -v "\/.git\/COMMIT_EDITMSG$" )
+	#paths_str=$( echo "$paths_str" | grep --text -v "\/.git\/COMMIT_EDITMSG$" )
+	paths_str=$( echo "$paths_str" | grep --text -v ".git" )
+	paths_str=$( echo "$paths_str" | grep --text -v "COMMIT_EDITMSG$" )
 	echo "$paths_str"
 }
 
@@ -385,7 +392,7 @@ _Vimh_only_dirs() {
 	if [[ -z "$result_str" ]]; then
 		return
 	fi
-	echo "$result_str" | grep -v "^$" | tac | awk '!count[$0]++' | tac
+	echo "$result_str" | grep --text -v "^$" | tac | awk '!count[$0]++' | tac
 }
 
 
@@ -401,7 +408,7 @@ _Vimh_filter_dirs() {
 	fi
 	#	}}}
 	local paths_str="${1:-}"
-	paths_str=$( echo "$paths_str" | grep -v "^$HOME$" ) 
+	paths_str=$( echo "$paths_str" | grep --text -v "^$HOME$" ) 
 	echo "$paths_str"
 }
 
@@ -525,7 +532,7 @@ _Vimh_promptUser_selectPath() {
 	local unique_files="$2"
 	#	validate: range_max
 	#	{{{
-	if [[ -z `echo "$range_max" | grep "^[[:digit:]]*$"` ]]; then
+	if [[ -z `echo "$range_max" | grep --text "^[[:digit:]]*$"` ]]; then
 		echo "$func_name, error, invalid range_max=($range_max)"  > /dev/stderr
 		return 2
 	fi
@@ -534,7 +541,7 @@ _Vimh_promptUser_selectPath() {
 	read user_selection_num
 	#	validate: user_selection_num
 	#	{{{
-	if [[ -z `echo "$user_selection_num" | grep "^[[:digit:]]*$"` ]]; then
+	if [[ -z `echo "$user_selection_num" | grep --text "^[[:digit:]]*$"` ]]; then
 		echo "$func_name, error, invalid user_selection_num=($user_selection_num)" > /dev/stderr
 		return 2
 	fi

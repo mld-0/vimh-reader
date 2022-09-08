@@ -85,13 +85,13 @@ test_Vimh_read_paths_in_file() {
 	fi
 
 #	Ongoing: 2022-08-28T22:34:09AEST 'filter_str' disabled pending investigation of problems it caused
-#	#	Test with filter_str
-#	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
-#	expected_str=$( cat "$test_data_path" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
-#	if [[ ! "$result_str" == "$expected_str" ]]; then
-#		echo "$func_name, fail: 2\n"
-#		exit 2
-#	fi
+	#	Test with filter_str
+	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
+	expected_str=$( cat "$test_data_path" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 2\n"
+		exit 2
+	fi
 
 	echo "$func_name, DONE"
 }
@@ -127,15 +127,15 @@ test_Vimh_get_uniquepaths() {
 	fi
 
 #	Ongoing: 2022-08-28T22:32:59AEST 'filter_str' disabled pending investigation of problems it caused
-#	#	Test with filter_str
-#	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
-#	expected_str=\
-#"/tmp/test-vimh-reader/abc.txt"
-#	if [[ ! "$result_str" == "$expected_str" ]]; then
-#		echo "$func_name, fail: 2\n"
-#		diff <( echo $result_str ) <( echo $expected_str )
-#		exit 2
-#	fi
+	#	Test with filter_str
+	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
+	expected_str=\
+"/tmp/test-vimh-reader/abc.txt"
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 2\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
 
 	#	Test with test files deleted 
 	delete_test_files_in_tmp

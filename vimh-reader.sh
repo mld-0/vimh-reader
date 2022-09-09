@@ -287,7 +287,6 @@ _Vimh_read_paths_in_file() {
 	fi
 	#	}}}
 
-	#	TODO: 2022-07-18T21:29:45AEST vimh-reader, oldest_date_included, report delta-now
 	#	{{{
 	#	disabled grep filtering
 	#oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
@@ -297,6 +296,12 @@ _Vimh_read_paths_in_file() {
 	#	}}}
 	oldest_date_included=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
 	youngest_date_included=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	#	Continue: 2022-09-10T01:00:49AEST vet usage/command for gnu-date properly (currently assuming PATH makes it the default)
+	current_epoch=`date "+%s"`
+	oldest_epoch_included=$( date --date="$oldest_date_included" "+%s" )
+	youngest_epoch_included=$( date --date="$youngest_date_included" "+%s" )
+	delta_d_oldest_date_included=$( perl -E "printf('%g', ($current_epoch - $oldest_epoch_included)/(24*60*60) )" )
+	delta_s_youngest_date_included=$( perl -E "say( $current_epoch - $youngest_epoch_included )" )
 
 	#	log_debug_vimh: path_input, filter_str, _vimh_lines_limit, oldest_date_included, youngest_date_included
 	#	{{{
@@ -306,6 +311,8 @@ _Vimh_read_paths_in_file() {
 	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
 	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)"
 	log_debug_vimh "$func_name, youngest_date_included=($youngest_date_included)"
+	log_debug_vimh "$func_name, delta_d_oldest_date_included=($delta_d_oldest_date_included)"
+	log_debug_vimh "$func_name, delta_s_youngest_date_included=($delta_s_youngest_date_included)"
 	#	}}}
 
 	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?) [...] (I mean it does?) [...] (and we test for this?)

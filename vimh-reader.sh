@@ -294,14 +294,16 @@ _Vimh_read_paths_in_file() {
 	#oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
 	#youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 	#	}}}
-	oldest_date_included=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-	youngest_date_included=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+	youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 	#	Continue: 2022-09-10T01:00:49AEST vet usage/command for gnu-date properly (currently assuming PATH makes it the default)
+	#	Continue: 2022-09-10T01:20:15AEST 'delta_since_datetime' should be a function
 	current_epoch=`date "+%s"`
 	oldest_epoch_included=$( date --date="$oldest_date_included" "+%s" )
 	youngest_epoch_included=$( date --date="$youngest_date_included" "+%s" )
 	delta_d_oldest_date_included=$( perl -E "printf('%g', ($current_epoch - $oldest_epoch_included)/(24*60*60) )" )
 	delta_s_youngest_date_included=$( perl -E "say( $current_epoch - $youngest_epoch_included )" )
+	#	warning if delta_s_youngest_date_included > some_threshold?
 
 	#	log_debug_vimh: path_input, filter_str, _vimh_lines_limit, oldest_date_included, youngest_date_included
 	#	{{{
@@ -321,7 +323,7 @@ _Vimh_read_paths_in_file() {
 	#result_str=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
 	#result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
 	#	}}}
-	result_str=$( cat "$path_input" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+	result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
 	log_debug_vimh "$func_name, lines(result_str)=(`echo $result_str | wc -l`)"
 	#log_debug_vimh "$func_name, result_str=($result_str)"
 	echo "$result_str"
@@ -630,9 +632,9 @@ _Vimh_Update_GlobalHistory() {
 	#	}}}
 	for f in "${path_locals[@]}"; do
 		log_debug_vimh "$func_name, f=($f)"
-		cat "$f" | tail -n $_vimh_lines_limit >> "$path_temp"
+		cat "$f" | grep --text -v "^#" | tail -n $_vimh_lines_limit >> "$path_temp"
 	done
-	cat "$path_temp" | sort -h > "$path_global"
+	cat "$path_temp" | grep --text -v "^#" | sort -h > "$path_global"
 }
 
 

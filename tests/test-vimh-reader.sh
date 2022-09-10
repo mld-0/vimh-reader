@@ -78,7 +78,7 @@ test_Vimh_read_paths_in_file() {
 
 	#	Test without filter_str
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" )
-	expected_str=$( cat "$test_data_path" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
 		exit 2
@@ -87,7 +87,7 @@ test_Vimh_read_paths_in_file() {
 #	Ongoing: 2022-08-28T22:34:09AEST 'filter_str' disabled pending investigation of problems it caused
 	#	Test with filter_str
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
-	expected_str=$( cat "$test_data_path" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 2\n"
 		exit 2

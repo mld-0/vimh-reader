@@ -59,6 +59,8 @@ class VimhAnalysis:
     def lastUniqueByColumn(df: pd.DataFrame, col_last_unique: str='filepath') -> pd.DataFrame:
         """Keep only records which have the last instance of each given unique value in a given column"""
         df_lastUnique = df.drop_duplicates(subset=col_last_unique, keep='last')
+        df_lastUnique = df_lastUnique.set_index(['date','time'])
+        df_lastUnique = df_lastUnique[col_last_unique]
         logging.debug("df_lastUnique=(%s)" % df_lastUnique)
         return df_lastUnique
 
@@ -79,14 +81,15 @@ class VimhAnalysis:
             iso_fmt = "%Y-%m-%dT%H:%M:%S%z"
             str2dt = lambda x: datetime.datetime.strptime(x, iso_fmt)
             df[col] = pd.to_datetime(df[col].apply(str2dt), utc=True)
-        def splitDateTimeColumn(df: pd.DataFrame):
-            df.insert(0, 'date', df[col].dt.date)
-            df.insert(1, 'time', df[col].dt.time)
-            df.drop(col, axis=1, inplace=True)
-            df['date'] = pd.to_datetime(df['date'])
-            df['time'] = df['time']
         convertStringToDateTime(df)
-        splitDateTimeColumn(df)
+
+    @staticmethod
+    def splitDateTimeColumn(df: pd.DataFrame, col: str):
+        df.insert(0, 'date', df[col].dt.date)
+        df.insert(1, 'time', df[col].dt.time)
+        df.drop(col, axis=1, inplace=True)
+        df['date'] = pd.to_datetime(df['date'])
+        df['time'] = df['time']
 
     @staticmethod
     def read_vimh_df(path_input: str) -> pd.DataFrame:
@@ -95,12 +98,19 @@ class VimhAnalysis:
         #df = df.tail(10000) 
         #logging.debug("tail(10000)")
         VimhAnalysis.parseDateTimes(df, 'datetime')
+        VimhAnalysis.splitDateTimeColumn(df, 'datetime')
         logging.debug("df=(%s)" % df)
         return df
 
     @staticmethod
     def reduceToDirs(df: pd.DataFrame, col: str='filepath'):
         df[col] = df[col].apply(lambda x: os.path.dirname(x))
+        logging.debug("df=(%s)" % df)
+        return df
+
+    @staticmethod
+    def reduceToBasenames(df: pd.Series, col: str='filepath'):
+        df[col] = df[col].apply(lambda x: os.path.splitext(os.path.basename(x))[0])
         logging.debug("df=(%s)" % df)
         return df
 
@@ -118,7 +128,14 @@ class VimhAnalysis:
         logging.debug("df=(%s)" % df)
         return df
 
-
+    @staticmethod
+    def splitPaths(df: pd.Series) -> pd.DataFrame:
+        """Turn Series of paths into DataFrame of ['dirpath','filename']"""
+        df = df.apply(lambda x: os.path.split(x))
+        df = pd.DataFrame(df.to_list(), index=df.index, columns=['dirpath','filename'])
+        logging.debug("df=(%s)" % df)
+        return df
+        
 
 def runCountUniquePathsPerDay():
     df = VimhAnalysis.read_vimh_df(path_input)
@@ -153,17 +170,27 @@ def print_df_countUniqueByDay(df):
 
 def runFilterLastUniquePaths():
     df = VimhAnalysis.read_vimh_df(path_input)
-    df_lastUnique = VimhAnalysis.lastUniqueByColumn(df)
+    #df = VimhAnalysis.reduceToBasenames(df)
+    #df = VimhAnalysis.reduceToDirs(df)
+    df = VimhAnalysis.lastUniqueByColumn(df)
+    df = VimhAnalysis.splitPaths(df)
+    pd.set_option('display.max_colwidth', None)
+    print(df.to_string(header=False))
+
+def runFilterLastUniqueDirs():
+    raise NotImplementedError()
 
 
 if __name__ == '__main__':
     path_input = os.path.join(os.getenv('HOME'), '.vimh')
     assert os.path.isfile(path_input)
 
-    runCountUniquePathsPerDay()
+    #runCountUniquePathsPerDay()
     #runCountUniqueDirsPerDay()
+
     #runCountUniqueExistingPathsPerDay()
     #runCountUniqueExistingDirsPerDay()
 
-    #runFilterLastUniquePaths()
+    runFilterLastUniquePaths()
+    #runFilterLastUniqueDirs()
 

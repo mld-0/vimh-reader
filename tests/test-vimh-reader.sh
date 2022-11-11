@@ -279,7 +279,8 @@ test_Vimh_only_repo_dirs() {
 
 	local previous_PWD=$PWD
 	cd "/tmp/test-vimh-reader"
-	git init --quiet
+	#git init --quiet
+	mkdir ".git"
 	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
 	result_str=$( _Vimh_only_dirs "$test_str" )
 	result_str=$( _Vimh_only_repo_dirs "$result_str" )

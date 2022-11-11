@@ -22,7 +22,7 @@ tab=$'\t'
 #	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths'
 #	}}}
 
-_vimh_flag_debug=1
+_vimh_flag_debug=0
 log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
 
 _vimh_version="0.1.1"
@@ -138,12 +138,14 @@ Vimh() {
 	-f | --filter	[val]	Filter input lines with value
 	-g | --global			Use combined logs from 'mld_out_cloud_shared'
 	-d | --dirs 			Get list of unique dirs
+	--repos 				(Only dirs containing git repos) (enables --dirs)
 	-v | --debug
 	-h | --help
 	--version"""
 	local filter_str=""
 	local flag_global=0
 	local flag_dirs=0
+	local flag_repos=0
 
 	#	parse args "$@"
 	#	{{{
@@ -170,6 +172,11 @@ Vimh() {
 				;;
 			-d|--dirs)
 				flag_dirs=1
+				shift
+				;;
+			--repos)
+				flag_dirs=1
+				flag_repos=1
 				shift
 				;;
 			-h|--help)
@@ -200,6 +207,9 @@ Vimh() {
 	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" )
 	if [[ $flag_dirs -ne 0 ]]; then
 		unique_files=$( _Vimh_only_dirs "$unique_files" )
+	fi
+	if [[ $flag_repos -ne 0 ]]; then
+		unique_files=$( _Vimh_only_repo_dirs "$unique_files" )
 	fi
 
 	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
@@ -404,6 +414,33 @@ _Vimh_only_dirs() {
 	echo "$result_str" | grep --text -v "^$" | tac | awk '!count[$0]++' | tac
 }
 
+_Vimh_only_repo_dirs() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+	fi
+	#	}}}
+	local IFS_temp=$IFS
+	IFS=$nl
+	local unique_dirs=( $( echo "${1:-}" ) )
+	IFS=$IFS_temp
+	local result_str=""
+	for d in "${unique_dirs[@]}"; do
+		#check=`git rev-parse --is-inside-work-tree --quiet 2> /dev/null`
+		#if [[ $check = "true" ]]; then
+		if [[ -d "$d/.git" ]]; then
+			result_str=$result_str$nl$d
+		fi
+	done
+	if [[ ! -z "$result_str" ]]; then
+		echo "$result_str" | grep --text -v "^$"
+	fi
+}
 
 _Vimh_filter_dirs() {
 	#	{{{

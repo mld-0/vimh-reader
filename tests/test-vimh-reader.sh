@@ -251,6 +251,52 @@ test_Vimh_only_dirs() {
 	echo "$func_name, DONE"
 }
 
+test_Vimh_only_repo_dirs() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+	fi
+	#	}}}
+	local test_str=""
+	local expected_str=""
+	local result_str=""
+
+	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
+	result_str=$( _Vimh_only_dirs "$test_str" )
+	result_str=$( _Vimh_only_repo_dirs "$result_str" )
+	expected_str=\
+""
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 1\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+
+	local previous_PWD=$PWD
+	cd "/tmp/test-vimh-reader"
+	git init --quiet
+	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
+	result_str=$( _Vimh_only_dirs "$test_str" )
+	result_str=$( _Vimh_only_repo_dirs "$result_str" )
+	rm -r ".git"
+	cd "$previous_PWD"
+	expected_str=\
+"/tmp/test-vimh-reader"
+	echo "result_str=($result_str)"
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 2\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+
+	echo "$func_name, DONE"
+}
+
 test_Vimh_truncate_paths_to_screen() {
 	#	{{{
 	local func_name=""
@@ -361,6 +407,7 @@ test_Vimh_read_paths_in_file
 test_Vimh_get_uniquepaths
 test_Vimh_only_existing_files
 test_Vimh_only_dirs
+test_Vimh_only_repo_dirs
 
 #	UNIMPLEMENTED
 #test_Vimh_truncate_paths_to_screen

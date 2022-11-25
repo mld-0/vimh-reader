@@ -22,6 +22,8 @@ tab=$'\t'
 #	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths'
 #	}}}
 
+#	Bug: 2022-11-11T22:21:02AEDT vimh-reader, filter '--repos' output includes subdirs of git repos (which should not be passing test do you contain '.git')
+
 _vimh_flag_debug=0
 log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
 
@@ -135,13 +137,13 @@ Vimh() {
 	local func_about="about"
 	local previous__vimh_flag_debug=$_vimh_flag_debug
 	local func_help="""$func_name, $func_about
-	-f | --filter	[val]	Filter input lines with value
-	-g | --global			Use combined logs from 'mld_out_cloud_shared'
-	-d | --dirs 			Get list of unique dirs
-	--repos 				(Only dirs containing git repos) (enables --dirs)
-	-v | --debug
-	-h | --help
-	--version"""
+    -f | --filter    [val]   Filter input lines with value
+    -g | --global            Use combined logs from 'mld_out_cloud_shared'
+    -d | --dirs              Get list of unique dirs
+    -r | --repos             (Only dirs containing git repos) (enables --dirs)
+    -v | --debug
+    -h | --help
+    --version"""
 	local filter_str=""
 	local flag_global=0
 	local flag_dirs=0
@@ -174,7 +176,7 @@ Vimh() {
 				flag_dirs=1
 				shift
 				;;
-			--repos)
+			-r|--repos)
 				flag_dirs=1
 				flag_repos=1
 				shift

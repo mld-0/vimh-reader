@@ -12,6 +12,7 @@ import pandas as pd
 import pprint
 from typing import List
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+#logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 #   Ongoings:
 #   {{{
 #   Ongoing: 2022-07-24T00:37:00AEST when/where to modify df in place versus return modified copy?
@@ -19,6 +20,20 @@ logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 #   Ongoing: 2022-07-24T02:43:38AEST 'apply(strptime)' is faster than 'pd.to_datetime()'?
 #   Ongoing: 2022-07-26T22:52:14AEST fast str2dt method(?)
 #   }}}
+
+path_home = os.environ.get('HOME')
+if not path_home:
+    raise Exception(f"failed to get path_home=({path_home})")
+
+path_input = os.path.join(path_home, '.vimh')
+if not os.path.isfile(path_input):
+    raise FileNotFoundError(path_input)
+
+flag_filter_existing = False
+flag_only_dirs = False
+flag_replace_HOME_in_output = True
+
+#   Continue: 2022-10-29T00:32:13AEDT vimh, flags to output reports from vimh-reader
 
 #   Reports: 
 #           count-unique (per-interval)
@@ -137,33 +152,25 @@ class VimhAnalysis:
         return df
         
 
-def runCountUniquePathsPerDay():
+def runCountUniquePathsPerDay(count_threshold=0):
     df = VimhAnalysis.read_vimh_df(path_input)
+    if flag_only_dirs:
+        df = VimhAnalysis.reduceToDirs(df)
+    if flag_filter_existing:
+        df = VimhAnalysis.filterExisting(df)
     df = VimhAnalysis.countUniquePerDay(df)
-    print_df_countUniqueByDay(df)
+    print_df_countUniqueByDay(df, count_threshold)
 
-def runCountUniqueExistingPathsPerDay():
-    df = VimhAnalysis.read_vimh_df(path_input)
-    df = VimhAnalysis.filterExisting(df)
-    df = VimhAnalysis.countUniquePerDay(df)
-    print_df_countUniqueByDay(df)
+def runCountUniqueExistingGitReposPerDay():
+    raise NotImplementedError()
 
-def runCountUniqueDirsPerDay():
-    df = VimhAnalysis.read_vimh_df(path_input)
-    df = VimhAnalysis.reduceToDirs(df)
-    df = VimhAnalysis.countUniquePerDay(df)
-    print_df_countUniqueByDay(df)
-
-def runCountUniqueExistingDirsPerDay():
-    df = VimhAnalysis.read_vimh_df(path_input)
-    df = VimhAnalysis.reduceToDirs(df)
-    df = VimhAnalysis.filterExisting(df)
-    df = VimhAnalysis.countUniquePerDay(df)
-    print_df_countUniqueByDay(df)
-
-def print_df_countUniqueByDay(df):
+def print_df_countUniqueByDay(df: pd.Series, count_threshold: int):
     for date, df_day in df.groupby(level=0):
         df_day = df_day.droplevel(0)
+        if flag_replace_HOME_in_output:
+            df_day.index = df_day.index.str.replace(path_home, '~')
+        if count_threshold > 0:
+            df_day = df_day[df_day > count_threshold]
         print(date.strftime("%F"))
         print(df_day.to_string(header=False))
         print()
@@ -171,26 +178,22 @@ def print_df_countUniqueByDay(df):
 def runFilterLastUniquePaths():
     df = VimhAnalysis.read_vimh_df(path_input)
     #df = VimhAnalysis.reduceToBasenames(df)
-    #df = VimhAnalysis.reduceToDirs(df)
+    if flag_only_dirs:
+        df = VimhAnalysis.reduceToDirs(df)
     df = VimhAnalysis.lastUniqueByColumn(df)
-    df = VimhAnalysis.splitPaths(df)
+    #df = VimhAnalysis.splitPaths(df)
     pd.set_option('display.max_colwidth', None)
+    if flag_replace_HOME_in_output:
+        df = df.str.replace(path_home, '~')
     print(df.to_string(header=False))
-
-def runFilterLastUniqueDirs():
-    raise NotImplementedError()
 
 
 if __name__ == '__main__':
-    path_input = os.path.join(os.getenv('HOME'), '.vimh')
-    assert os.path.isfile(path_input)
+    ...
 
-    #runCountUniquePathsPerDay()
-    #runCountUniqueDirsPerDay()
+    runCountUniquePathsPerDay()
+    #runFilterLastUniquePaths()
 
-    #runCountUniqueExistingPathsPerDay()
-    #runCountUniqueExistingDirsPerDay()
+    #runCountUniqueExistingGitReposPerDay()
 
-    runFilterLastUniquePaths()
-    #runFilterLastUniqueDirs()
 

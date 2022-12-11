@@ -34,6 +34,7 @@ flag_only_dirs = False
 flag_replace_HOME_in_output = True
 
 #   Continue: 2022-10-29T00:32:13AEDT vimh, flags to output reports from vimh-reader
+#   Continue: 2022-12-05T20:16:08AEDT filter output by date range
 
 #   Reports: 
 #           count-unique (per-interval)
@@ -45,7 +46,7 @@ class VimhAnalysis:
     #   Ongoing: 2022-07-28T22:47:49AEST is 'loop_df' a copy of (or window into) origional dataframe?
     #   Ongoing: 2022-07-26T22:52:45AEST 'groupByDay()' return nested-index dataframe, or list-of-dataframes?
     @staticmethod
-    def countUniquePerDay(df: pd.DataFrame, col_count_unique: str='filepath') -> pd.DataFrame:
+    def countUniquePerDay(df: pd.DataFrame, col_count_unique: str='filepath') -> pd.Series:
         """Group by day and count unique values in a given column""" 
         #   Produces result with multiindex: [date,path] = count
         df_countUniqueByDay = df.groupby(pd.Grouper(key='date', axis=0, freq='D'))[col_count_unique].value_counts()
@@ -71,7 +72,16 @@ class VimhAnalysis:
         #   }}}
 
     @staticmethod
-    def lastUniqueByColumn(df: pd.DataFrame, col_last_unique: str='filepath') -> pd.DataFrame:
+    def sumSplitsPerUniquePerDay(df: pd.DataFrame, seconds_threshold: int=300, col: str='filepath') -> pd.Series:
+        df = df[~(df['delta_s'] > seconds_threshold)]
+        df['delta_h'] = df['delta_s'] / 3600.0
+        g = [pd.Grouper(key='date', axis=0, freq='D'), col]
+        df_sumSplitsByUniqueByDay = df.groupby(g)['delta_h'].sum().sort_values(ascending=False)
+        logging.debug("df_sumSplitsByUniqueByDay=(%s)" % df_sumSplitsByUniqueByDay)
+        return df_sumSplitsByUniqueByDay
+
+    @staticmethod
+    def lastUniqueByColumn(df: pd.DataFrame, col_last_unique: str='filepath') -> pd.Series:
         """Keep only records which have the last instance of each given unique value in a given column"""
         df_lastUnique = df.drop_duplicates(subset=col_last_unique, keep='last')
         df_lastUnique = df_lastUnique.set_index(['date','time'])
@@ -79,10 +89,10 @@ class VimhAnalysis:
         logging.debug("df_lastUnique=(%s)" % df_lastUnique)
         return df_lastUnique
 
-    @staticmethod
-    def substituteHomeStr(df: pd.DataFrame) -> pd.DataFrame:
-        """Replaces instances of '$HOME' with '~' in df ~~(for given columns 'col_replace' (which must be strings?))~~ (for all columns that are strings?) """
-        raise NotImplementedError()
+    #@staticmethod
+    #def substituteHomeStr(df: pd.DataFrame) -> pd.DataFrame:
+    #    """Replaces instances of '$HOME' with '~' in df ~~(for given columns 'col_replace' (which must be strings?))~~ (for all columns that are strings?) """
+    #    raise NotImplementedError()
 
     @staticmethod
     def filterEmptyByCol(df: pd.DataFrame, col_filter_by: str):
@@ -113,7 +123,7 @@ class VimhAnalysis:
         #df = df.tail(10000) 
         #logging.debug("tail(10000)")
         VimhAnalysis.parseDateTimes(df, 'datetime')
-        VimhAnalysis.splitDateTimeColumn(df, 'datetime')
+        #VimhAnalysis.splitDateTimeColumn(df, 'datetime')
         logging.debug("df=(%s)" % df)
         return df
 
@@ -150,36 +160,56 @@ class VimhAnalysis:
         df = pd.DataFrame(df.to_list(), index=df.index, columns=['dirpath','filename'])
         logging.debug("df=(%s)" % df)
         return df
-        
+
+    @staticmethod
+    def datetimeSplits(df: pd.DataFrame):
+        """Get difference in seconds between each datetime as new column 'delta_s'"""
+        col = 'datetime'
+        df['delta_s'] = df[col].diff()
+        df['delta_s'] = df['delta_s'].dt.total_seconds()
+        logging.debug(f"df=({df})")
+        return df
+
 
 def runCountUniquePathsPerDay(count_threshold=0):
+    """Report count per unique file for each day"""
+    df = handleReading()
+    VimhAnalysis.splitDateTimeColumn(df, 'datetime')
+    df = VimhAnalysis.countUniquePerDay(df)
+    print_Series_DatePathIndex_Values(df, count_threshold)
+
+def runSumSplits():
+    """Report sum(delta_s) per unique file for each day"""
+    df = handleReading()
+    df = VimhAnalysis.datetimeSplits(df)
+    VimhAnalysis.splitDateTimeColumn(df, 'datetime')
+    df = VimhAnalysis.sumSplitsPerUniquePerDay(df)
+    print_Series_DatePathIndex_Values(df, 0)
+
+def handleReading():
     df = VimhAnalysis.read_vimh_df(path_input)
     if flag_only_dirs:
         df = VimhAnalysis.reduceToDirs(df)
     if flag_filter_existing:
         df = VimhAnalysis.filterExisting(df)
-    df = VimhAnalysis.countUniquePerDay(df)
-    print_df_countUniqueByDay(df, count_threshold)
+    return df
 
-def runCountUniqueExistingGitReposPerDay():
-    raise NotImplementedError()
-
-def print_df_countUniqueByDay(df: pd.Series, count_threshold: int):
+def print_Series_DatePathIndex_Values(df: pd.Series, value_threshold: int):
+    #pd.set_option('precision', 2)
     for date, df_day in df.groupby(level=0):
         df_day = df_day.droplevel(0)
         if flag_replace_HOME_in_output:
             df_day.index = df_day.index.str.replace(path_home, '~')
-        if count_threshold > 0:
-            df_day = df_day[df_day > count_threshold]
+        if value_threshold > 0:
+            df_day = df_day[df_day > value_threshold]
         print(date.strftime("%F"))
         print(df_day.to_string(header=False))
         print()
 
 def runFilterLastUniquePaths():
+    """Report most recent log record of each unique file"""
     df = VimhAnalysis.read_vimh_df(path_input)
-    #df = VimhAnalysis.reduceToBasenames(df)
-    if flag_only_dirs:
-        df = VimhAnalysis.reduceToDirs(df)
+    VimhAnalysis.splitDateTimeColumn(df, 'datetime')
     df = VimhAnalysis.lastUniqueByColumn(df)
     #df = VimhAnalysis.splitPaths(df)
     pd.set_option('display.max_colwidth', None)
@@ -187,13 +217,16 @@ def runFilterLastUniquePaths():
         df = df.str.replace(path_home, '~')
     print(df.to_string(header=False))
 
+def runCountUniqueExistingGitReposPerDay():
+    raise NotImplementedError()
+
 
 if __name__ == '__main__':
     ...
-
     runCountUniquePathsPerDay()
+    #runSumSplits()
+
     #runFilterLastUniquePaths()
 
     #runCountUniqueExistingGitReposPerDay()
-
 

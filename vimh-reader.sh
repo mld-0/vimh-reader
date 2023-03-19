@@ -117,6 +117,7 @@ fi
 #}
 #	}}}
 
+_vimh_bin_date=date
 
 Vimh() {
 	#	{{{
@@ -298,13 +299,13 @@ _Vimh_read_paths_in_file() {
 	#oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
 	#youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 	#	}}}
+
+	#	Continue: 2022-09-10T01:20:15AEST 'delta_since_datetime' should be a function
 	oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
 	youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
-	#	Continue: 2022-09-10T01:00:49AEST vet usage/command for gnu-date properly (currently assuming PATH makes it the default)
-	#	Continue: 2022-09-10T01:20:15AEST 'delta_since_datetime' should be a function
-	current_epoch=`date "+%s"`
-	oldest_epoch_included=$( date --date="$oldest_date_included" "+%s" )
-	youngest_epoch_included=$( date --date="$youngest_date_included" "+%s" )
+	current_epoch=`$_vimh_bin_date "+%s"`
+	oldest_epoch_included=$( $_vimh_bin_date --date="$oldest_date_included" "+%s" )
+	youngest_epoch_included=$( $_vimh_bin_date --date="$youngest_date_included" "+%s" )
 	delta_d_oldest_date_included=$( perl -E "printf('%g', ($current_epoch - $oldest_epoch_included)/(24*60*60) )" )
 	delta_s_youngest_date_included=$( perl -E "say( $current_epoch - $youngest_epoch_included )" )
 	#	warning if delta_s_youngest_date_included > some_threshold?

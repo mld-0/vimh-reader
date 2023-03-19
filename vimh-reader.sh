@@ -14,6 +14,7 @@
 #	Ongoing: 2022-06-06T02:52:22AEST for 'cd' to work, none of the function calls leading to it can be in subshells (and we would have to use temp files (or global vars, or other dubious methods) if we wanted to return data from them) [...] (is that we find we were not doing so even before considering this possible problem indiciative of <good> design (vis-a-vis dataflow)?) 
 #	Ongoing: 2022-06-06T03:07:33AEST (don't put any '|' in $HOME)
 #	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths' [...] implementation has been disabled for being slow (but exists(?))
+#	Ongoing: 2023-03-19T11:32:30AEDT _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') appears to work for filenames with spaces
 #	}}}
 
 #	Bug: 2022-11-11T22:21:02AEDT vimh-reader, filter '--repos' output includes subdirs of git repos (which should not be passing test do you contain '.git') 
@@ -534,7 +535,6 @@ _Vimh_truncate_paths_to_screen() {
 }
 
 
-#	Test: 2022-06-06T03:23:19AEST _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') is not tricked by filenames/filepaths with spaces
 _Vimh_print_prompt_files() {
 	#	{{{
 	local func_name=""

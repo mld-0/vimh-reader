@@ -1,14 +1,8 @@
 #!/usr/bin/env zsh
+#	{{{3
 #   vim: set tabstop=4 modeline modelines=10:
 #   vim: set foldlevel=2 foldcolumn=2 foldmethod=marker:
 #	{{{2
-nl=$'\n'
-tab=$'\t'
-#	{{{
-#set -o errexit   # abort on nonzero exitstatus
-#set -o nounset   # abort on unbound variable
-#set -o pipefail  # don't hide errors within pipes
-#	}}}
 #	Ongoings:
 #	{{{
 #	Ongoing: 2022-06-05T21:16:13AEST (how to) hide bash functions (that aren't 'Vimh') from global scope (wider shell env)
@@ -19,10 +13,11 @@ tab=$'\t'
 #	Ongoing: 2022-06-06T01:23:39AEST ';' after command with redirection to /dev/[stderr|null]?
 #	Ongoing: 2022-06-06T02:52:22AEST for 'cd' to work, none of the function calls leading to it can be in subshells (and we would have to use temp files (or global vars, or other dubious methods) if we wanted to return data from them) [...] (is that we find we were not doing so even before considering this possible problem indiciative of <good> design (vis-a-vis dataflow)?) 
 #	Ongoing: 2022-06-06T03:07:33AEST (don't put any '|' in $HOME)
-#	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths'
+#	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths' [...] implementation has been disabled for being slow (but exists(?))
 #	}}}
 
-#	Bug: 2022-11-11T22:21:02AEDT vimh-reader, filter '--repos' output includes subdirs of git repos (which should not be passing test do you contain '.git')
+#	Bug: 2022-11-11T22:21:02AEDT vimh-reader, filter '--repos' output includes subdirs of git repos (which should not be passing test do you contain '.git') 
+#	[...] (does it?)
 
 _vimh_flag_debug=0
 log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
@@ -135,7 +130,6 @@ Vimh() {
 	fi
 	#	}}}
 	local func_about="about"
-	local previous__vimh_flag_debug=$_vimh_flag_debug
 	local func_help="""$func_name, $func_about
     -f | --filter    [val]   Filter input lines with value
     -g | --global            Use combined logs from 'mld_out_cloud_shared'
@@ -187,7 +181,7 @@ Vimh() {
 				shift
 				;;
 			-v|--debug)
-				_vimh_flag_debug=1
+				local _vimh_flag_debug=1
 				shift
 				;;
 			--version)
@@ -216,8 +210,6 @@ Vimh() {
 
 	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
 	_Vimh_promptAndOpen "$unique_files"
-
-	_vimh_flag_debug=$previous__vimh_flag_debug
 }
 
 
@@ -356,7 +348,7 @@ _Vimh_only_existing_files() {
 	local paths_list_str="${1:-}"
 	paths_list_str=$( _Vimh_filter_files "$paths_list_str" )
 	local IFS_temp=$IFS
-	IFS=$nl
+	IFS=$'\n'
 	local paths_list=( $( echo "$paths_list_str" ) ) 
 	IFS=$IFS_temp
 	for loop_path in "${paths_list[@]}"; do
@@ -399,7 +391,7 @@ _Vimh_only_dirs() {
 	fi
 	#	}}}
 	local IFS_temp=$IFS
-	IFS=$nl
+	IFS=$'\n'
 	local unique_files=( $( echo "${1:-}" ) )
 	IFS=$IFS_temp
 	local result_str=""
@@ -407,7 +399,7 @@ _Vimh_only_dirs() {
 		if [[ ! -d $f ]]; then
 			f=$( dirname "$f" )
 		fi
-		result_str=$result_str$nl$f
+		result_str=$result_str$'\n'$f
 	done
 	result_str=$( _Vimh_filter_dirs "$result_str" )
 	if [[ -z "$result_str" ]]; then
@@ -428,7 +420,7 @@ _Vimh_only_repo_dirs() {
 	fi
 	#	}}}
 	local IFS_temp=$IFS
-	IFS=$nl
+	IFS=$'\n'
 	local unique_dirs=( $( echo "${1:-}" ) )
 	IFS=$IFS_temp
 	local result_str=""
@@ -436,7 +428,7 @@ _Vimh_only_repo_dirs() {
 		#check=`git rev-parse --is-inside-work-tree --quiet 2> /dev/null`
 		#if [[ $check = "true" ]]; then
 		if [[ -d "$d/.git" ]]; then
-			result_str=$result_str$nl$d
+			result_str=$result_str$'\n'$d
 		fi
 	done
 	if [[ ! -z "$result_str" ]]; then
@@ -475,7 +467,7 @@ _Vimh_promptAndOpen() {
 	#	}}}
 	local unique_files="${1:-}"
 	local IFS_temp=$IFS
-	IFS=$nl
+	IFS=$'\n'
 	local prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" ) )
 	IFS=$IFS_temp
 	#	validate: prompt_files
@@ -525,7 +517,7 @@ _Vimh_truncate_paths_to_screen() {
 	log_debug_vimh "$func_name, output_height=($output_height), output_width=($output_width)"
 
 	local IFS_temp=$IFS
-	IFS=$nl
+	IFS=$'\n'
 	local prompt_files=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
 	IFS=$IFS_temp
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
@@ -654,7 +646,7 @@ _Vimh_Update_GlobalHistory() {
 	#	}}}
 	local path_global=$( _Vimh_GetPath_GlobalHistory )
 	local IFS_temp=$IFS
-	IFS=$nl
+	IFS=$'\n'
 	local path_locals=( $( _Vimh_GetPaths_CloudHistories ) )
 	IFS=$IFS_temp
 	local path_temp=$( mktemp )
@@ -724,7 +716,7 @@ _Vimh_GetPaths_CloudHistories() {
 	fi
 	#	}}}
 	local IFS_temp=$IFS
-	IFS=$nl
+	IFS=$'\n'
 	local result=( $( find $_vimh_path_dir_globalhistory/*/$_vimh_name_globalhistory -print ) )
 	IFS=$IFS_temp
 	#	validate: result_str

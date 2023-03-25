@@ -440,7 +440,7 @@ _Vimh_only_repo_dirs() {
 		fi
 	done
 	if [[ ! -z "$result_str" ]]; then
-		echo "$result_str" | grep --text -v "^$"
+		echo "$result_str" | grep --text -v "^$" | tac | awk '!count[$0]++' | tac
 	fi
 }
 

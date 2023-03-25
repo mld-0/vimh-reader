@@ -430,7 +430,7 @@ _Vimh_only_repo_dirs() {
 		if [[ -d "$d" ]]; then
 			local previous_PWD=$PWD
 			cd "$d"
-			if git rev-parse --is-inside-work-tree --quiet 1>&2 2> /dev/null; then
+			if git rev-parse --is-inside-work-tree --quiet > /dev/null 2>&1; then
 				relative_root=`git rev-parse --show-cdup`
 				cd "$relative_root"
 				root=$PWD

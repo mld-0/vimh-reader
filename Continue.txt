@@ -1,7 +1,7 @@
 vimh-reader:
-2022-10-29T00:32:13AEDT vimh-reader, flags to output reports from vimh-analysis
+2022-10-29T00:32:13AEDT flags to output reports from vimh-analysis
 2023-03-25T19:10:40AEDT process more lines if given a '--filter' filter argument
-2023-03-25T19:10:57AEDT for '--repos' include parent directory if file is in a subdirectory of a git repo
+2023-03-25T20:40:17AEDT need to filter-unique output from '_Vimh_only_repo_dirs'
 
 vimh-analysis:
 2022-12-05T20:16:08AEDT filter output by date range

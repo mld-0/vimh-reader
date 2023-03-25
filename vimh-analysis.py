@@ -33,9 +33,6 @@ flag_filter_existing = False
 flag_only_dirs = False
 flag_replace_HOME_in_output = True
 
-#   Continue: 2022-10-29T00:32:13AEDT vimh, flags to output reports from vimh-reader
-#   Continue: 2022-12-05T20:16:08AEDT filter output by date range
-
 #   Reports: 
 #           count-unique (per-interval)
 #           last-unique (per-interval?)

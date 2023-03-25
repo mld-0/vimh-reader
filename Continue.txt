@@ -1,0 +1,10 @@
+vimh-reader:
+2022-10-29T00:32:13AEDT vimh-reader, flags to output reports from vimh-analysis
+2023-03-25T19:10:40AEDT process more lines if given a '--filter' filter argument
+2023-03-25T19:10:57AEDT for '--repos' include parent directory if file is in a subdirectory of a git repo
+
+vimh-analysis:
+2022-12-05T20:16:08AEDT filter output by date range
+2023-03-25T19:14:19AEDT (is a) file screaming out for cleaning up
+
+

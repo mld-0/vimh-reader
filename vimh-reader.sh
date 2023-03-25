@@ -427,10 +427,16 @@ _Vimh_only_repo_dirs() {
 	IFS=$IFS_temp
 	local result_str=""
 	for d in "${unique_dirs[@]}"; do
-		#check=`git rev-parse --is-inside-work-tree --quiet 2> /dev/null`
-		#if [[ $check = "true" ]]; then
-		if [[ -d "$d/.git" ]]; then
-			result_str=$result_str$'\n'$d
+		if [[ -d "$d" ]]; then
+			local previous_PWD=$PWD
+			cd "$d"
+			if git rev-parse --is-inside-work-tree --quiet 1>&2 2> /dev/null; then
+				relative_root=`git rev-parse --show-cdup`
+				cd "$relative_root"
+				root=$PWD
+				result_str=$result_str$'\n'$root
+			fi
+			cd "$previous_PWD"
 		fi
 	done
 	if [[ ! -z "$result_str" ]]; then

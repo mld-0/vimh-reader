@@ -37,7 +37,6 @@ files_prohbit=( "abc.t" "def.t" )
 echo source "$test_script" > /dev/stderr
 source "$test_script"
 
-#flag_debug_vimh=1
 _vimh_flag_debug=1
 
 
@@ -113,11 +112,11 @@ test_Vimh_get_uniquepaths() {
 	#	Test without filter_str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" )
 	expected_str=\
-"/tmp/test-vimh-reader/def.txt
-/tmp/test-vimh-reader/hij.txt
-/tmp/test-vimh-reader/lmn.txt
-/tmp/test-vimh-reader/abc.txt
-/tmp/test-vimh-reader/zxy.txt"
+"$path_testdir/def.txt
+$path_testdir/hij.txt
+$path_testdir/lmn.txt
+$path_testdir/abc.txt
+$path_testdir/zxy.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
 		echo "$func_name, result_str=($result_str)"
@@ -130,7 +129,7 @@ test_Vimh_get_uniquepaths() {
 	#	Test with filter_str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
 	expected_str=\
-"/tmp/test-vimh-reader/abc.txt"
+"$path_testdir/abc.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 2\n"
 		diff <( echo $result_str ) <( echo $expected_str )
@@ -172,11 +171,11 @@ test_Vimh_only_existing_files() {
 	#	test_str includes leading and trailing newlines
 	test_str=$nl$( create_test_str_files_list )$nl
 	expected_str=\
-"/tmp/test-vimh-reader/abc.txt
-/tmp/test-vimh-reader/def.txt
-/tmp/test-vimh-reader/hij.txt
-/tmp/test-vimh-reader/zxy.txt
-/tmp/test-vimh-reader/lmn.txt"
+"$path_testdir/abc.txt
+$path_testdir/def.txt
+$path_testdir/hij.txt
+$path_testdir/zxy.txt
+$path_testdir/lmn.txt"
 	result_str=$( _Vimh_only_existing_files "$test_str" )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
@@ -230,7 +229,7 @@ test_Vimh_only_dirs() {
 	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
 	result_str=$( _Vimh_only_dirs "$test_str" )
 	expected_str=\
-"/tmp/test-vimh-reader"
+"$path_testdir"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 1\n"
 		diff <( echo $result_str ) <( echo $expected_str )
@@ -266,6 +265,12 @@ test_Vimh_only_repo_dirs() {
 	local expected_str=""
 	local result_str=""
 
+	local previous_PWD=$PWD
+	cd "$path_testdir"
+	if [[ -d ".git" ]]; then
+		rm -r ".git"
+	fi
+	cd "$previous_PWD"
 	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
 	result_str=$( _Vimh_only_dirs "$test_str" )
 	result_str=$( _Vimh_only_repo_dirs "$result_str" )
@@ -278,16 +283,15 @@ test_Vimh_only_repo_dirs() {
 	fi
 
 	local previous_PWD=$PWD
-	cd "/tmp/test-vimh-reader"
-	#git init --quiet
-	mkdir ".git"
+	cd "$path_testdir"
+	git init  --quiet
 	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
 	result_str=$( _Vimh_only_dirs "$test_str" )
 	result_str=$( _Vimh_only_repo_dirs "$result_str" )
 	rm -r ".git"
 	cd "$previous_PWD"
 	expected_str=\
-"/tmp/test-vimh-reader"
+"$path_testdir"
 	echo "result_str=($result_str)"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 2\n"

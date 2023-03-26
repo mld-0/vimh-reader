@@ -191,6 +191,16 @@ Vimh() {
 				return 2
 				shift
 				;;
+			-*|--*)
+				echo "Unknown option '$1'" > /dev/stderr
+				return 2
+				shift
+				;;
+			*)
+				echo "Invalid argument '$1'"
+				return 2
+				shift
+				;;
 		esac
 	done
 	#	}}}

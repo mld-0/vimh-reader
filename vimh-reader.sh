@@ -151,8 +151,8 @@ Vimh() {
 		echo "$func_help"
 		return 2
 	fi
-	for arg in "$@"; do
-		case $arg in
+	while [[ $# -gt 0 ]]; do
+		case $1 in
 			-f|--filter)
 				filter_str="$2"
 				#	{{{
@@ -197,7 +197,7 @@ Vimh() {
 				shift
 				;;
 			*)
-				echo "Invalid argument '$1'"
+				echo "Invalid argument '$1'" > /dev/stderr
 				return 2
 				shift
 				;;

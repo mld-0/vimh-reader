@@ -385,7 +385,7 @@ _Vimh_filter_files() {
 	#	}}}
 	local paths_str="${1:-}"
 	#paths_str=$( echo "$paths_str" | grep --text -v "\/.git\/COMMIT_EDITMSG$" )
-	paths_str=$( echo "$paths_str" | grep --text -v ".git" )
+	paths_str=$( echo "$paths_str" | grep --text -v "\.git$" )
 	paths_str=$( echo "$paths_str" | grep --text -v "COMMIT_EDITMSG$" )
 	echo "$paths_str"
 }

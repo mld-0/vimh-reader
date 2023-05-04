@@ -137,6 +137,7 @@ Vimh() {
     -g | --global            Use combined logs from 'mld_out_cloud_shared'
     -d | --dirs              Get list of unique dirs
     -r | --repos             (Only dirs containing git repos) (enables --dirs)
+    -i | --imaginary         Include files not found on filesystem
     -v | --debug
     -h | --help
     --version"""
@@ -144,6 +145,7 @@ Vimh() {
 	local flag_global=0
 	local flag_dirs=0
 	local flag_repos=0
+	local flag_imaginary=""
 
 	#	parse args "$@"
 	#	{{{
@@ -182,6 +184,10 @@ Vimh() {
 				return 2
 				shift
 				;;
+			-i|--imaginary)
+				flag_imaginary="--imaginary"
+				shift
+				;;
 			-v|--debug)
 				local _vimh_flag_debug=1
 				shift
@@ -212,7 +218,7 @@ Vimh() {
 	fi
 
 	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
-	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" )
+	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" "$flag_imaginary" )
 	if [[ $flag_dirs -ne 0 ]]; then
 		unique_files=$( _Vimh_only_dirs "$unique_files" )
 	fi
@@ -244,6 +250,7 @@ _Vimh_get_uniquepaths() {
 	#	}}}
 	local path_input="${1:-}"
 	local filter_str="${2:-}"
+	local flag_imaginary="${3:-}"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -273,6 +280,12 @@ _Vimh_get_uniquepaths() {
 		return 2
 	fi
 	#	}}}
+
+	if [[ $flag_imaginary == "--imaginary" ]]; then
+		log_debug_vimh "$func_name, skip filter _Vimh_only_existing_files"
+		echo "$unique_files_list_str"
+		return
+	fi
 
 	existing_unique_files_list_str=$( _Vimh_only_existing_files "$unique_files_list_str" )
 	log_debug_vimh "$func_name, lines(existing_unique_files_list_str)=(`echo "$existing_unique_files_list_str" | wc -l`)"

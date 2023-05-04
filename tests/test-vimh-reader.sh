@@ -7,17 +7,17 @@ tab=$'\t'
 set -o errexit   # abort on nonzero exitstatus
 set -o nounset   # abort on unbound variable
 set -o pipefail  # don't hide errors within pipes
-#	Ongoings:
 #	{{{
 #	Ongoing: 2022-06-06T18:58:54AEST test providing user input to functions?
 #	Ongoing: 2022-06-06T19:43:01AEST test requires /private/tmp (also accessible as /tmp) (macOS temp dir that isn't TMPDIR)
+#	2023-05-04T22:11:37AEST use mktemp to create path_testdir?
 #	}}}
 
 self_name='test-vimh-reader'
 self_dir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 test_script="$self_dir/../vimh-reader.sh"
-test_data_path="$self_dir/data/vimh"
+test_data_path="$self_dir/data/vimh.txt"
 #	{{{
 if [[ ! -f "$test_script" ]]; then
 	echo "$self_name, error, not found, test_script=($test_script)" > /dev/stderr
@@ -83,7 +83,6 @@ test_Vimh_read_paths_in_file() {
 		exit 2
 	fi
 
-#	Ongoing: 2022-08-28T22:34:09AEST 'filter_str' disabled pending investigation of problems it caused
 	#	Test with filter_str
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
 	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
@@ -125,13 +124,30 @@ $path_testdir/zxy.txt"
 		exit 2
 	fi
 
-#	Ongoing: 2022-08-28T22:32:59AEST 'filter_str' disabled pending investigation of problems it caused
 	#	Test with filter_str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
 	expected_str=\
 "$path_testdir/abc.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: 2\n"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+
+	#	Test with '--imaginary'
+	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "--imaginary" )
+	expected_str=\
+"$path_testdir/def.txt
+$path_testdir/hij.txt
+$path_testdir/lmn.txt
+$path_testdir/abc.t
+$path_testdir/abc.txt
+$path_testdir/zxy.txt
+$path_testdir/def.t"
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 1\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
@@ -207,7 +223,7 @@ $path_testdir/lmn.txt"
 		exit 2
 	fi
 	setup_tmp_dir_with_files
-	
+
 	echo "$func_name, DONE"
 }
 

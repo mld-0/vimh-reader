@@ -15,11 +15,11 @@
 #	Ongoing: 2022-06-06T03:07:33AEST (don't put any '|' in $HOME)
 #	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths' [...] implementation has been disabled for being slow (but exists(?))
 #	Ongoing: 2023-03-19T11:32:30AEDT _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') appears to work for filenames with spaces
+#	2023-05-20T20:04:41AEST can't 'log_debug_vim' recieve it's argument without '$func_name' (that being something that will still be in scope?)
 #	}}}
 
 _vimh_flag_debug=0
 log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
-
 
 #	local history file
 _vimh_path_localhistory="$HOME/.vimh"
@@ -123,8 +123,11 @@ Vimh() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
-	local func_about="about"
-	local func_help="""$func_name, $func_about
+	local _vimh_version="0.1.3"
+	local func_about="Utility for finding/opening recent items from vimh log"
+	local func_help="""$func_name, $_vimh_version
+$func_about
+Usage:
     -f | --filter [val]      Filter input lines with value
     -g | --global            Use combined logs from 'mld_out_cloud_shared'
     -d | --dirs              Get list of unique dirs
@@ -134,9 +137,9 @@ Vimh() {
     -s | --start  [start]    (UNIMPLEMENTED) Start filter date
     -e | --end    [end]      (UNIMPLEMENTED) End filter date
     -R | --report [interval] (UNIMPLEMENTED) Report counts by interval [y/m/d]
-    -l | --limit  [limit]    Max lines in history (0 = unlimited)
-    -L | --long              (UNIMPLEMENTED) Do not limit choices to length of screen
-    --noprompt               (UNIMPLEMENTED) Do not ask for choice
+    -L | --limit  [limit]    Max lines in history (0 = unlimited)
+    -l | --long              Do not limit choices to length of screen
+    -n | --noprompt          Do not ask for choice (and do not shorten paths)
     -v | --debug
     -h | --help
     --version
@@ -146,9 +149,8 @@ Vimh() {
 	local flag_dirs=0
 	local flag_repos=0
 	local flag_imaginary=""
-
-	local _vimh_version="0.1.2"
-
+	local flag_only_most_recents=1
+	local flag_skip_prompt_open=0
 	#	parse args "$@"
 	#	{{{
 	if echo "${1:-}" | perl -wne '/^\s*-h|--help\s*$/ or exit 1'; then
@@ -190,7 +192,7 @@ Vimh() {
 				flag_imaginary="--imaginary"
 				shift
 				;;
-			-l|--limit)
+			-L|--limit)
 				local _vimh_lines_limit="$2"
 				if [[ ! "$_vimh_lines_limit" =~ ^[0-9]+$ ]]; then
 					echo "$func_name, error, --limit must be a non-negative integer,_vimh_lines_limit=($_vimh_lines_limit)" > /dev/stderr
@@ -198,7 +200,15 @@ Vimh() {
 				fi
 				shift
 				shift
-				;;;
+				;;
+			-l|--long)
+				flag_only_most_recents=0
+				shift
+				;;
+			-n|--noprompt)
+				flag_skip_prompt_open=1
+				shift
+				;;
 			-v|--debug)
 				local _vimh_flag_debug=1
 				shift
@@ -519,7 +529,8 @@ _Vimh_promptAndOpen() {
 	local unique_files="${1:-}"
 	local IFS_temp=$IFS
 	IFS=$'\n'
-	local prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" ) )
+	local promp_files=""
+	prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" ) )
 	IFS=$IFS_temp
 	#	validate: prompt_files
 	#	{{{
@@ -531,6 +542,11 @@ _Vimh_promptAndOpen() {
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 
 	_Vimh_print_prompt_files "${prompt_files[@]}" 
+
+	if [[ $flag_skip_prompt_open -ne 0 ]]; then
+		log_debug_vimh "$func_name, skip prompt open" 
+		return
+	fi
 
 	local range_max="${#prompt_files[@]}"
 	echo "Select [1, $range_max]:"
@@ -565,16 +581,26 @@ _Vimh_truncate_paths_to_screen() {
 		output_width=1
 	fi
 	#	}}}
+
+	#	log_debug:
+	#	{{{
 	log_debug_vimh "$func_name, output_height=($output_height), output_width=($output_width)"
+	log_debug_vimh "$func_name, flag_only_most_recents=($flag_only_most_recents)"
+	log_debug_vimh "$func_name, flag_skip_prompt_open=($flag_skip_prompt_open)"
+	#	}}}
 
 	local IFS_temp=$IFS
 	IFS=$'\n'
-	local prompt_files=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
+	if [[ $flag_only_most_recents -ne 0 ]]; then
+		local prompt_files=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
+	else
+		local prompt_files=( $( echo -n "$unique_files" | sed "s|$HOME|~|g" ) )
+	fi
 	IFS=$IFS_temp
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 
 	for loop_file in "${prompt_files[@]}"; do
-		if [[ `echo -n "$loop_file" | wc -c` -ge $output_width ]]; then
+		if [[ $flag_skip_prompt_open -eq 0 ]] && [[ `echo -n "$loop_file" | wc -c` -ge $output_width ]]; then
 			local prepend_str="..."
 			local cut_width=$(( $output_width - `echo -n "$prepend_str" | wc -c` ))
 			loop_file="$prepend_str${loop_file: -$cut_width}"
@@ -597,6 +623,14 @@ _Vimh_print_prompt_files() {
 	#	}}}
 	local prompt_files=( "$@" )
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
+	log_debug_vimh "$func_name, flag_skip_prompt_open=($flag_skip_prompt_open)"
+
+	if [[ $flag_skip_prompt_open -ne 0 ]]; then
+		for loop_file in "${prompt_files[@]}"; do
+			echo -n "$loop_file\n"
+		done
+		return
+	fi
 
 	i=${#prompt_files[@]}
 	for loop_file in "${prompt_files[@]}"; do

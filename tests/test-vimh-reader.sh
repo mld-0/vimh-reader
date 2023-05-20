@@ -91,6 +91,24 @@ test_Vimh_read_paths_in_file() {
 		exit 2
 	fi
 
+	#	Test '--limit 0'
+	local _vimh_lines_limit=0
+	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
+	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | awk -F'\t' '{print $5}' )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 3\n"
+		exit 2
+	fi
+
+	#	Test '--limit 1'
+	local _vimh_lines_limit=1
+	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
+	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: 4\n"
+		exit 2
+	fi
+
 	echo "$func_name, DONE"
 }
 

@@ -17,13 +17,9 @@
 #	Ongoing: 2023-03-19T11:32:30AEDT _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') appears to work for filenames with spaces
 #	}}}
 
-#	Bug: 2022-11-11T22:21:02AEDT vimh-reader, filter '--repos' output includes subdirs of git repos (which should not be passing test do you contain '.git') 
-#	[...] (does it?)
-
 _vimh_flag_debug=0
 log_debug_vimh() { if [[ $_vimh_flag_debug -ne 0 ]]; then echo "$@" > /dev/stderr; fi }
 
-_vimh_version="0.1.1"
 
 #	local history file
 _vimh_path_localhistory="$HOME/.vimh"
@@ -38,9 +34,8 @@ _vimh_flag_only_realpaths=0
 #	application to open files
 _vimh_editor="$EDITOR"
 
-#	number of lines to given number of lines
+#	number of lines to read from log file(s) (set to 0 for all)
 _vimh_lines_limit=50000
-#_vimh_lines_limit=0
 
 #	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh
 #	{{{
@@ -56,9 +51,6 @@ fi
 if [[ ! -f "$mld_log_vimh" ]]; then
 	echo "vimh, warning, file not found, mld_log_vim=($mld_log_vim)" > /dev/stderr
 fi
-#	}}}
-#	validate: _vimh_path_localhistory -> mld_log_vimh
-#	{{{
 if [[ ! `readlink -f "$_vimh_path_localhistory"` == "$mld_log_vimh" ]]; then
 	echo "vimh, warning, _vimh_path_localhistory=($_vimh_path_localhistory) does not link to mld_log_vimh=($mld_log_vimh)"  > /dev/stderr
 fi
@@ -133,19 +125,29 @@ Vimh() {
 	#	}}}
 	local func_about="about"
 	local func_help="""$func_name, $func_about
-    -f | --filter    [val]   Filter input lines with value
+    -f | --filter [val]      Filter input lines with value
     -g | --global            Use combined logs from 'mld_out_cloud_shared'
     -d | --dirs              Get list of unique dirs
-    -r | --repos             (Only dirs containing git repos) (enables --dirs)
+    -r | --repos             Only dirs containing git repos (enables --dirs)
     -i | --imaginary         Include files not found on filesystem
+    -c | --count             (UNIMPLEMENTED) Sort result by occurences count
+    -s | --start  [start]    (UNIMPLEMENTED) Start filter date
+    -e | --end    [end]      (UNIMPLEMENTED) End filter date
+    -R | --report [interval] (UNIMPLEMENTED) Report counts by interval [y/m/d]
+    -l | --limit  [limit]    Max lines in history (0 = unlimited)
+    -L | --long              (UNIMPLEMENTED) Do not limit choices to length of screen
+    --noprompt               (UNIMPLEMENTED) Do not ask for choice
     -v | --debug
     -h | --help
-    --version"""
+    --version
+"""
 	local filter_str=""
 	local flag_global=0
 	local flag_dirs=0
 	local flag_repos=0
 	local flag_imaginary=""
+
+	local _vimh_version="0.1.2"
 
 	#	parse args "$@"
 	#	{{{
@@ -188,6 +190,15 @@ Vimh() {
 				flag_imaginary="--imaginary"
 				shift
 				;;
+			-l|--limit)
+				local _vimh_lines_limit="$2"
+				if [[ ! "$_vimh_lines_limit" =~ ^[0-9]+$ ]]; then
+					echo "$func_name, error, --limit must be a non-negative integer,_vimh_lines_limit=($_vimh_lines_limit)" > /dev/stderr
+					return 2
+				fi
+				shift
+				shift
+				;;;
 			-v|--debug)
 				local _vimh_flag_debug=1
 				shift
@@ -324,9 +335,14 @@ _Vimh_read_paths_in_file() {
 	#youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 	#	}}}
 
-	#	Continue: 2022-09-10T01:20:15AEST 'delta_since_datetime' should be a function
-	oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-	youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	if [[ "$_vimh_lines_limit" -eq 0 ]]; then
+		oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | head -n 1 | awk -F'\t' '{print $1}' )
+		youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n 1 | awk -F'\t' '{print $1}' )
+	else
+		oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
+		youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
+	fi
+
 	current_epoch=`$_vimh_bin_date "+%s"`
 	oldest_epoch_included=$( $_vimh_bin_date --date="$oldest_date_included" "+%s" )
 	youngest_epoch_included=$( $_vimh_bin_date --date="$youngest_date_included" "+%s" )
@@ -352,7 +368,11 @@ _Vimh_read_paths_in_file() {
 	#result_str=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
 	#result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
 	#	}}}
-	result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+	if [[ "$_vimh_lines_limit" -eq 0 ]]; then
+		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | awk -F'\t' '{print $5}' )
+	else
+		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+	fi
 	log_debug_vimh "$func_name, lines(result_str)=(`echo $result_str | wc -l`)"
 	#log_debug_vimh "$func_name, result_str=($result_str)"
 	echo "$result_str"
@@ -693,7 +713,11 @@ _Vimh_Update_GlobalHistory() {
 	#	}}}
 	for f in "${path_locals[@]}"; do
 		log_debug_vimh "$func_name, f=($f)"
-		cat "$f" | grep --text -v "^#" | tail -n $_vimh_lines_limit >> "$path_temp"
+		if [[ "$_vimh_lines_limit" -eq 0 ]]; then
+			cat "$f" | grep --text -v "^#" >> "$path_temp"
+		else
+			cat "$f" | grep --text -v "^#" | tail -n $_vimh_lines_limit >> "$path_temp"
+		fi
 	done
 	cat "$path_temp" | grep --text -v "^#" | sort -h > "$path_global"
 }

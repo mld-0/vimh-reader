@@ -392,13 +392,13 @@ _Vimh_read_paths_in_file() {
 	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?) [...] (I mean it does?) [...] (and we test for this?)
 	#	{{{
 	#	disabled grep filtering
-	#result_str=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
-	#result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+	#result_str=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $6}' )
+	#result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $6}' )
 	#	}}}
 	if [[ "$_vimh_lines_limit" -eq 0 ]]; then
-		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | awk -F'\t' '{print $5}' )
+		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | awk -F'\t' '{print $6}' )
 	else
-		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $5}' )
+		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $6}' )
 	fi
 	log_debug_vimh "$func_name, lines(result_str)=(`echo $result_str | wc -l`)"
 	#log_debug_vimh "$func_name, result_str=($result_str)"

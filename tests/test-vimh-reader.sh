@@ -60,6 +60,25 @@ _vimh_flag_debug=1
 #}
 #	}}}
 
+main() {
+	setup_tmp_dir_with_files
+
+	#	UNIMPLEMENTED
+	#test_Vimh_get_uniquepathCounts
+
+	test_Vimh_read_paths_in_file
+	test_Vimh_get_uniquepaths
+	test_Vimh_only_existing_files
+	test_Vimh_only_dirs
+	test_Vimh_only_repo_dirs
+
+	#	UNIMPLEMENTED
+	#test_Vimh_truncate_paths_to_screen
+	#test_Vimh_prompt_open_files
+
+	echo "DONE" > /dev/stderr
+}
+
 
 test_Vimh_read_paths_in_file() {
 	#	{{{
@@ -74,40 +93,57 @@ test_Vimh_read_paths_in_file() {
 	#	}}}
 	local result_str=""
 	local expected_str=""
+	local i=1
 
 	#	Test without filter_str
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" )
 	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
+		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test with filter_str
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
 	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 2\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
+		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test '--limit 0'
 	local _vimh_lines_limit=0
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
 	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 3\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
+		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test '--limit 1'
 	local _vimh_lines_limit=1
 	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
 	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 4\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
+		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	echo "$func_name, DONE"
 }
@@ -125,6 +161,8 @@ test_Vimh_get_uniquepaths() {
 	#	}}}
 	local result_str=""
 	local expected_str=""
+	local i=1
+	local realpath_testdir=$( readlink -f "$path_testdir" )
 
 	#	Test without filter_str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" )
@@ -133,21 +171,25 @@ test_Vimh_get_uniquepaths() {
 $path_testdir/hij.txt
 $path_testdir/lmn.txt
 $path_testdir/abc.txt
-$path_testdir/zxy.txt"
+$path_testdir/zxy.txt
+$path_testdir/symdef.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
 		echo "$func_name, result_str=($result_str)"
 		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test with filter_str
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
 	expected_str=\
 "$path_testdir/abc.txt"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 2\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
@@ -161,14 +203,17 @@ $path_testdir/lmn.txt
 $path_testdir/abc.t
 $path_testdir/abc.txt
 $path_testdir/zxy.txt
-$path_testdir/def.t"
+$path_testdir/def.t
+$path_testdir/symdef.txt
+$path_testdir/symabc.t"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
 		echo "$func_name, result_str=($result_str)"
 		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test with test files deleted 
 	delete_test_files_in_tmp
@@ -176,11 +221,50 @@ $path_testdir/def.t"
 	expected_str=\
 ""
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 	setup_tmp_dir_with_files
+
+	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "" "--readlink" )
+	expected_str=\
+"$path_testdir/hij.txt
+$path_testdir/lmn.txt
+$path_testdir/abc.txt
+$path_testdir/zxy.txt
+$path_testdir/def.txt" 
+	expected_str=$( echo "$expected_str" | sed "s|$path_testdir|$realpath_testdir|g" )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+	i=$( perl -E "say $i+1" )
+
+	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "--imaginary" "--readlink" )
+	expected_str=\
+"$path_testdir/hij.txt
+$path_testdir/lmn.txt
+$path_testdir/abc.txt
+$path_testdir/zxy.txt
+$path_testdir/def.t
+$path_testdir/def.txt
+$path_testdir/abc.t" 
+	expected_str=$( echo "$expected_str" | sed "s|$path_testdir|$realpath_testdir|g" )
+	if [[ ! "$result_str" == "$expected_str" ]]; then
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
+		diff <( echo $result_str ) <( echo $expected_str )
+		exit 2
+	fi
+	i=$( perl -E "say $i+1" )
 
 	echo "$func_name, DONE"
 }
@@ -200,6 +284,7 @@ test_Vimh_only_existing_files() {
 	local test_str=""
 	local expected_str=""
 	local result_str=""
+	local i=1
 
 	#	Basic test -> files in-order
 	#	test_str includes leading and trailing newlines
@@ -209,13 +294,17 @@ test_Vimh_only_existing_files() {
 $path_testdir/def.txt
 $path_testdir/hij.txt
 $path_testdir/zxy.txt
-$path_testdir/lmn.txt"
+$path_testdir/lmn.txt
+$path_testdir/symdef.txt"
 	result_str=$( _Vimh_only_existing_files "$test_str" )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test empty input -> empty output 
 	test_str=""
@@ -223,10 +312,13 @@ $path_testdir/lmn.txt"
 ""
 	result_str=$( _Vimh_only_existing_files "$test_str" )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 2\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test with all files deleted -> empty output
 	#	test_str includes leading and trailing newlines
@@ -236,11 +328,14 @@ $path_testdir/lmn.txt"
 ""
 	result_str=$( _Vimh_only_existing_files "$test_str" )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
 	setup_tmp_dir_with_files
+	i=$( perl -E "say $i+1" )
 
 	echo "$func_name, DONE"
 }
@@ -259,16 +354,20 @@ test_Vimh_only_dirs() {
 	local test_str=""
 	local expected_str=""
 	local result_str=""
+	local i=1
 
 	test_str=$nl$( _Vimh_get_uniquepaths "$test_data_path" )$nl
 	result_str=$( _Vimh_only_dirs "$test_str" )
 	expected_str=\
 "$path_testdir"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	#	Test empty input -> empty output
 	test_str=""
@@ -276,10 +375,13 @@ test_Vimh_only_dirs() {
 	expected_str=\
 ""
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 2\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	echo "$func_name, DONE"
 }
@@ -298,6 +400,7 @@ test_Vimh_only_repo_dirs() {
 	local test_str=""
 	local expected_str=""
 	local result_str=""
+	local i=1
 
 	local previous_PWD=$PWD
 	cd "$path_testdir"
@@ -311,10 +414,13 @@ test_Vimh_only_repo_dirs() {
 	expected_str=\
 ""
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 1\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	local previous_PWD=$PWD
 	cd "$path_testdir"
@@ -326,12 +432,14 @@ test_Vimh_only_repo_dirs() {
 	cd "$previous_PWD"
 	expected_str=\
 "$path_testdir"
-	echo "result_str=($result_str)"
 	if [[ ! "$result_str" == "$expected_str" ]]; then
-		echo "$func_name, fail: 2\n"
+		echo "$func_name, fail: $i\n"
+		echo "$func_name, result_str=($result_str)"
+		echo "$func_name, expected_str=($expected_str)"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
 	echo "$func_name, DONE"
 }
@@ -380,6 +488,9 @@ setup_tmp_dir_with_files() {
 	fi
 	#	}}}
 	#echo mkdir "$path_testdir" > /dev/stderr
+	if [[ -d "$path_testdir" ]]; then
+		rm -r "$path_testdir"
+	fi
 	mkdir -p "$path_testdir"
 	if [[ ! -d "$path_testdir" ]]; then
 		echo "$func_name, error, not found, path_testdir=($path_testdir)" > /dev/stderr
@@ -391,6 +502,8 @@ setup_tmp_dir_with_files() {
 		touch "$path_create"
 		if [[ ! -f "$path_create" ]]; then echo "$func_name, error, not created, path_create=($path_create)" > /dev/stderr; exit 2; fi
 	done
+	ln -s "$path_testdir/def.txt" "$path_testdir/symdef.txt"
+	ln -s "$path_testdir/abc.t" "$path_testdir/symabc.t"
 	for f in "${files_prohbit[@]}"; do
 		local path_prohibit="$path_testdir/$f"
 		if [[ -e "$path_prohibit"  ]]; then echo "$func_name, error, '$path_prohibit' exists (test requires that it does not)" > /dev/stderr; exit 2; fi
@@ -410,6 +523,8 @@ delete_test_files_in_tmp() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+	rm "$path_testdir/symdef.txt"
+	rm "$path_testdir/symabc.t"
 	for f in "${files_create[@]}"; do
 		local path_delete="$path_testdir/$f"
 		#echo rm "$path_delete" > /dev/stderr
@@ -422,36 +537,25 @@ delete_test_files_in_tmp() {
 create_test_str_files_list() {
 #	{{{
 	local test_str=""
+	local path_file=""
 	for f in "${files_create[@]}"; do
-		local path_file="$path_testdir/$f"
+		path_file="$path_testdir/$f"
 		test_str="$test_str$path_file$nl"
 	done
 	for f in "${files_prohbit[@]}"; do
-		local path_file="$path_testdir/$f"
+		path_file="$path_testdir/$f"
 		test_str="$test_str$path_file$nl"
 	done
+	path_file="$path_testdir/symdef.txt"
+	test_str="$test_str$path_file$nl"
+	path_file="$path_testdir/symabc.t"
+	test_str="$test_str$path_file$nl"
 	echo "$test_str"
 }
 #	}}}
 
 
-setup_tmp_dir_with_files
 
+main "$@"
 
-#	UNIMPLEMENTED
-#test_Vimh_get_uniquepathCounts
-
-
-test_Vimh_read_paths_in_file
-test_Vimh_get_uniquepaths
-test_Vimh_only_existing_files
-test_Vimh_only_dirs
-test_Vimh_only_repo_dirs
-
-#	UNIMPLEMENTED
-#test_Vimh_truncate_paths_to_screen
-#test_Vimh_prompt_open_files
-
-
-echo "DONE" > /dev/stderr
 

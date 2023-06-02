@@ -16,6 +16,7 @@
 #	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths' [...] implementation has been disabled for being slow (but exists(?))
 #	Ongoing: 2023-03-19T11:32:30AEDT _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') appears to work for filenames with spaces
 #	2023-05-20T20:04:41AEST can't 'log_debug_vim' recieve it's argument without '$func_name' (that being something that will still be in scope?)
+#	2023-06-02T19:54:47AEST '--follow' generally unneccessary (since only realpaths are written to ~/.vimh)
 #	}}}
 
 _vimh_flag_debug=0
@@ -28,8 +29,8 @@ _vimh_path_localhistory="$HOME/.vimh"
 _vimh_path_dir_globalhistory="$mld_out_cloud_shared/combined-logs"
 _vimh_name_globalhistory="vimh.vi.txt"
 
-#	NOT IMPLEMENTED (slow) convert every path to realpath
-_vimh_flag_only_realpaths=0		
+##	NOT IMPLEMENTED (slow) convert every path to realpath
+#_vimh_flag_only_realpaths=0		
 
 #	application to open files
 _vimh_editor="$EDITOR"
@@ -137,13 +138,21 @@ Usage:
     -s | --start  [start]    (UNIMPLEMENTED) Start filter date
     -e | --end    [end]      (UNIMPLEMENTED) End filter date
     -R | --report [interval] (UNIMPLEMENTED) Report counts by interval [y/m/d]
-    -L | --limit  [limit]    Max lines in history (0 = unlimited)
+    -m | --limit  [limit]    Max lines in history (0 = unlimited)
     -l | --long              Do not limit choices to length of screen
     -n | --noprompt          Do not ask for choice (and do not shorten paths)
+	-L | --follow            Output only realpaths (slow)
     -v | --debug
     -h | --help
     --version
 """
+	#	{{{
+	if echo "${1:-}" | perl -wne '/^\s*-h|--help\s*$/ or exit 1'; then
+		echo "$func_help"
+		return 2
+	fi
+	#	}}}
+
 	local filter_str=""
 	local flag_global=0
 	local flag_dirs=0
@@ -151,12 +160,10 @@ Usage:
 	local flag_imaginary=""
 	local flag_only_most_recents=1
 	local flag_skip_prompt_open=0
+	local flag_only_realpaths=0
+
 	#	parse args "$@"
 	#	{{{
-	if echo "${1:-}" | perl -wne '/^\s*-h|--help\s*$/ or exit 1'; then
-		echo "$func_help"
-		return 2
-	fi
 	while [[ $# -gt 0 ]]; do
 		case $1 in
 			-f|--filter)
@@ -192,7 +199,7 @@ Usage:
 				flag_imaginary="--imaginary"
 				shift
 				;;
-			-L|--limit)
+			-m|--limit)
 				local _vimh_lines_limit="$2"
 				if [[ ! "$_vimh_lines_limit" =~ ^[0-9]+$ ]]; then
 					echo "$func_name, error, --limit must be a non-negative integer,_vimh_lines_limit=($_vimh_lines_limit)" > /dev/stderr
@@ -207,6 +214,10 @@ Usage:
 				;;
 			-n|--noprompt)
 				flag_skip_prompt_open=1
+				shift
+				;;
+			-L|--follow)
+				flag_only_realpaths="--readlink"
 				shift
 				;;
 			-v|--debug)
@@ -239,7 +250,7 @@ Usage:
 	fi
 
 	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
-	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" "$flag_imaginary" )
+	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" "$flag_imaginary" "$flag_only_realpaths" )
 	if [[ $flag_dirs -ne 0 ]]; then
 		unique_files=$( _Vimh_only_dirs "$unique_files" )
 	fi
@@ -272,6 +283,7 @@ _Vimh_get_uniquepaths() {
 	local path_input="${1:-}"
 	local filter_str="${2:-}"
 	local flag_imaginary="${3:-}"
+	local flag_only_realpaths="${4:-}"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -280,15 +292,20 @@ _Vimh_get_uniquepaths() {
 	fi
 	#	}}}
 
-	if [[ $_vimh_flag_only_realpaths -ne 0 ]]; then
-		echo "$func_name, error, _Vimh_filter_realpaths not available" > /dev/stderr
-		return 2
-		#unique_files_list_str=$( _Vimh_filter_realpaths "$unique_files_list_str" | tac | awk '!count[$0]++' | tac )
-	fi
+	#if [[ $_vimh_flag_only_realpaths -ne 0 ]]; then
+	#	echo "$func_name, error, _Vimh_filter_realpaths not available" > /dev/stderr
+	#	return 2
+	#	#unique_files_list_str=$( _Vimh_filter_realpaths "$unique_files_list_str" | tac | awk '!count[$0]++' | tac )
+	#fi
 
 	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
 	log_debug_vimh "$func_name, lines(read_files_str)=(`echo $read_files_str | wc -l`)"
 	#log_debug_vimh "$func_name, read_files_str=($read_files_str)"
+
+	if [[ $flag_only_realpaths == "--readlink" ]]; then
+		read_files_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
+		read_files_str=$( _Vimh_resolve_symlinks "$read_files_str" )
+	fi
 
 	local unique_files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
 	log_debug_vimh "$func_name, lines(unique_files_list_str)=(`echo $unique_files_list_str | wc -l`)"
@@ -495,6 +512,32 @@ _Vimh_only_repo_dirs() {
 	if [[ ! -z "$result_str" ]]; then
 		echo "$result_str" | grep --text -v "^$" | tac | awk '!count[$0]++' | tac
 	fi
+}
+
+_Vimh_resolve_symlinks() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+	fi
+	#	}}}
+	local IFS_temp=$IFS
+	IFS=$'\n'
+	local paths_str=( $( echo "${1:-}" ) )
+	IFS=$IFS_temp
+	local result_str=""
+	local f_resolved=""
+	for f in "${paths_str[@]}"; do
+		f_resolved=`readlink -f "$f"`
+		#log_debug_vimh "$func_name, f=($f), f_resolved=($f_resolved)"
+		#result_str=$result_str$'\n'$f_resolved
+		echo "$f_resolved"
+	done
+	#echo "$result_str"
 }
 
 _Vimh_filter_dirs() {

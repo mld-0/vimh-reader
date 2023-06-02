@@ -27,3 +27,5 @@
 2022-06-06T19:18:41AEST	zxy.txt	Minerva	VimLeave	/tmp/test-vimh-reader/zxy.txt
 2022-06-06T23:38:05AEST	def.t	Minerva	VimEnter	/tmp/test-vimh-reader/def.t
 2022-06-06T23:38:05AEST	def.t	Minerva	VimLeave	/tmp/test-vimh-reader/def.t
+2022-06-06T23:38:25AEST	symdef.txt	Minerva	VimLeave	/tmp/test-vimh-reader/symdef.txt
+2022-06-06T23:38:35AEST	symabc.t	Minerva	VimLeave	/tmp/test-vimh-reader/symabc.t

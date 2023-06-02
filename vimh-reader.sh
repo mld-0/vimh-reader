@@ -141,7 +141,7 @@ Usage:
     -m | --limit  [limit]    Max lines in history (0 = unlimited)
     -l | --long              Do not limit choices to length of screen
     -n | --noprompt          Do not ask for choice (and do not shorten paths)
-	-L | --follow            Output only realpaths (slow)
+    -L | --follow            Output only realpaths (slow)
     -v | --debug
     -h | --help
     --version

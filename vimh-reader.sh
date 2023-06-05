@@ -142,6 +142,7 @@ Usage:
     -l | --long              Do not limit choices to length of screen
     -n | --noprompt          Do not ask for choice (and do not shorten paths)
     -L | --follow            Output only realpaths (slow)
+    --notilde                Don't replace s/\$HOME/~/
     -v | --debug
     -h | --help
     --version
@@ -161,6 +162,7 @@ Usage:
 	local flag_only_most_recents=1
 	local flag_skip_prompt_open=0
 	local flag_only_realpaths=0
+	local flag_home_as_tilde=1
 
 	#	parse args "$@"
 	#	{{{
@@ -218,6 +220,10 @@ Usage:
 				;;
 			-L|--follow)
 				flag_only_realpaths="--readlink"
+				shift
+				;;
+			--notilde)
+				flag_home_as_tilde=0
 				shift
 				;;
 			-v|--debug)
@@ -630,15 +636,25 @@ _Vimh_truncate_paths_to_screen() {
 	log_debug_vimh "$func_name, output_height=($output_height), output_width=($output_width)"
 	log_debug_vimh "$func_name, flag_only_most_recents=($flag_only_most_recents)"
 	log_debug_vimh "$func_name, flag_skip_prompt_open=($flag_skip_prompt_open)"
+	log_debug_vimh "$func_name, flag_home_as_tilde=($flag_home_as_tilde)"
 	#	}}}
 
+	#	{{{
+	#if [[ $flag_only_most_recents -ne 0 ]]; then
+	#	local prompt_files_str=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
+	#else
+	#	local prompt_files_str=( $( echo -n "$unique_files" | sed "s|$HOME|~|g" ) )
+	#fi
+	#	}}}
+	if [[ $flag_only_most_recents -ne 0 ]]; then
+		unique_files=$( echo -n "$unique_files" | tail -n $output_height )
+	fi
+	if [[ $flag_home_as_tilde -ne 0 ]]; then
+		unique_files=$( echo -n "$unique_files" | sed "s|$HOME|~|g" )
+	fi
 	local IFS_temp=$IFS
 	IFS=$'\n'
-	if [[ $flag_only_most_recents -ne 0 ]]; then
-		local prompt_files=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
-	else
-		local prompt_files=( $( echo -n "$unique_files" | sed "s|$HOME|~|g" ) )
-	fi
+	local prompt_files=( $( echo -n "$unique_files" ) )
 	IFS=$IFS_temp
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 

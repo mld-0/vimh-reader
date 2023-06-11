@@ -76,6 +76,10 @@ main() {
 	#test_Vimh_truncate_paths_to_screen
 	#test_Vimh_prompt_open_files
 
+	#	UNIMPLEMENTED
+	echo "WARNING, test_*_with_counts functions untested" > /dev/stderr
+	#test_*_with_counts
+
 	echo "DONE" > /dev/stderr
 }
 
@@ -164,7 +168,7 @@ test_Vimh_get_uniquepaths() {
 	local i=1
 	local realpath_testdir=$( readlink -f "$path_testdir" )
 
-	#	Test without filter_str
+	#	Test without filter_str (1)
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" )
 	expected_str=\
 "$path_testdir/def.txt
@@ -182,7 +186,7 @@ $path_testdir/symdef.txt"
 	fi
 	i=$( perl -E "say $i+1" )
 
-	#	Test with filter_str
+	#	Test with filter_str (2)
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "abc" )
 	expected_str=\
 "$path_testdir/abc.txt"
@@ -193,8 +197,9 @@ $path_testdir/symdef.txt"
 		diff <( echo $result_str ) <( echo $expected_str )
 		exit 2
 	fi
+	i=$( perl -E "say $i+1" )
 
-	#	Test with '--imaginary'
+	#	Test with '--imaginary' (3)
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "--imaginary" )
 	expected_str=\
 "$path_testdir/def.txt
@@ -215,7 +220,7 @@ $path_testdir/symabc.t"
 	fi
 	i=$( perl -E "say $i+1" )
 
-	#	Test with test files deleted 
+	#	Test with files deleted (4)
 	delete_test_files_in_tmp
 	result_str=$( _Vimh_get_uniquepaths "$test_data_path" )
 	expected_str=\
@@ -230,7 +235,8 @@ $path_testdir/symabc.t"
 	i=$( perl -E "say $i+1" )
 	setup_tmp_dir_with_files
 
-	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "" "--readlink" )
+	#	(5)
+	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "" "--follow" )
 	expected_str=\
 "$path_testdir/hij.txt
 $path_testdir/lmn.txt
@@ -247,7 +253,7 @@ $path_testdir/def.txt"
 	fi
 	i=$( perl -E "say $i+1" )
 
-	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "--imaginary" "--readlink" )
+	result_str=$( _Vimh_get_uniquepaths "$test_data_path" "" "--imaginary" "--follow" )
 	expected_str=\
 "$path_testdir/hij.txt
 $path_testdir/lmn.txt

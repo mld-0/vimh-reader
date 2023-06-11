@@ -5,6 +5,8 @@ vimh-reader:
 2022-09-10T01:20:15AEST 'delta_since_datetime' (for `_Vimh_read_paths_in_file`) should be a function(?)
 2023-05-20T22:56:18AEST --long / --noprompt / <> argument tests (set flag variables accordingly)
 2023-05-20T22:56:58AEST with --noprompt, we can test '_Vimh()'(?)
+2023-06-11T18:52:28AEST support --readlink for _Vimh_get_uniquepaths_by_count
+2023-06-11T20:17:08AEST --count tests
 
 vimh-analysis:
 2022-12-05T20:16:08AEDT filter output by date range

@@ -3,6 +3,8 @@ vimh-reader:
 2023-03-25T19:10:40AEDT process more lines if given a '--filter' filter argument
 2023-03-25T20:45:33AEDT flag to prevent request for input / opening of file
 2022-09-10T01:20:15AEST 'delta_since_datetime' (for `_Vimh_read_paths_in_file`) should be a function(?)
+2023-05-20T22:56:18AEST --long / --noprompt / <> argument tests (set flag variables accordingly)
+2023-05-20T22:56:58AEST with --noprompt, we can test '_Vimh()'(?)
 
 vimh-analysis:
 2022-12-05T20:16:08AEDT filter output by date range

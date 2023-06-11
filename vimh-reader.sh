@@ -13,7 +13,6 @@
 #	Ongoing: 2022-06-06T01:23:39AEST ';' after command with redirection to /dev/[stderr|null]?
 #	Ongoing: 2022-06-06T02:52:22AEST for 'cd' to work, none of the function calls leading to it can be in subshells (and we would have to use temp files (or global vars, or other dubious methods) if we wanted to return data from them) [...] (is that we find we were not doing so even before considering this possible problem indiciative of <good> design (vis-a-vis dataflow)?) 
 #	Ongoing: 2022-06-06T03:07:33AEST (don't put any '|' in $HOME)
-#	Ongoing: 2022-07-18T21:28:33AEST slow *and* NOT IMPLEMENTED? '_vimh_flag_only_realpaths' [...] implementation has been disabled for being slow (but exists(?))
 #	Ongoing: 2023-03-19T11:32:30AEDT _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') appears to work for filenames with spaces
 #	2023-05-20T20:04:41AEST can't 'log_debug_vim' recieve it's argument without '$func_name' (that being something that will still be in scope?)
 #	2023-06-02T19:54:47AEST '--follow' generally unneccessary (since only realpaths are written to ~/.vimh)
@@ -29,8 +28,6 @@ _vimh_path_localhistory="$HOME/.vimh"
 _vimh_path_dir_globalhistory="$mld_out_cloud_shared/combined-logs"
 _vimh_name_globalhistory="vimh.vi.txt"
 
-##	NOT IMPLEMENTED (slow) convert every path to realpath
-#_vimh_flag_only_realpaths=0		
 
 #	application to open files
 _vimh_editor="$EDITOR"
@@ -38,7 +35,9 @@ _vimh_editor="$EDITOR"
 #	number of lines to read from log file(s) (set to 0 for all)
 _vimh_lines_limit=50000
 
-#	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh
+_vimh_bin_date=date
+
+#	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh, _vimh_bin_date
 #	{{{
 if [[ ! -f "$_vimh_path_localhistory" ]]; then
 	echo "vimh, warning, not found, _vimh_path_localhistory=($_vimh_path_localhistory)" > /dev/stderr
@@ -47,13 +46,16 @@ if [[ ! -d "$_vimh_path_dir_globalhistory" ]]; then
 	echo "vimh, warning, dir not found, _vimh_path_dir_globalhistory=($_vimh_path_dir_globalhistory)" > /dev/stderr
 fi
 if [[ ! -x "$_vimh_editor" ]]; then
-	echo "vimh, warning, exe not found, _vimh_editor=($_vimh_editor)" > /dev/stderr
+	echo "vimh, warning, bin not found, _vimh_editor=($_vimh_editor)" > /dev/stderr
 fi
 if [[ ! -f "$mld_log_vimh" ]]; then
 	echo "vimh, warning, file not found, mld_log_vim=($mld_log_vim)" > /dev/stderr
 fi
 if [[ ! `readlink -f "$_vimh_path_localhistory"` == "$mld_log_vimh" ]]; then
 	echo "vimh, warning, _vimh_path_localhistory=($_vimh_path_localhistory) does not link to mld_log_vimh=($mld_log_vimh)"  > /dev/stderr
+fi
+if ! command -v $_vimh_bin_date  &> /dev/null; then
+	echo "$func_name, warning, command not found, _vimh_bin_date=($_vimh_bin_date)" > /dev/stderr
 fi
 #	}}}
 
@@ -111,7 +113,6 @@ fi
 #}
 #	}}}
 
-_vimh_bin_date=date
 
 Vimh() {
 	#	{{{
@@ -161,7 +162,7 @@ Usage:
 	local flag_imaginary=""
 	local flag_only_most_recents=1
 	local flag_skip_prompt_open=0
-	local flag_only_realpaths=0
+	local flag_resolve_symlinks=0
 	local flag_home_as_tilde=1
 
 	#	parse args "$@"
@@ -219,7 +220,7 @@ Usage:
 				shift
 				;;
 			-L|--follow)
-				flag_only_realpaths="--readlink"
+				flag_resolve_symlinks="--readlink"
 				shift
 				;;
 			--notilde)
@@ -256,7 +257,7 @@ Usage:
 	fi
 
 	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
-	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" "$flag_imaginary" "$flag_only_realpaths" )
+	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" "$flag_imaginary" "$flag_resolve_symlinks" )
 	if [[ $flag_dirs -ne 0 ]]; then
 		unique_files=$( _Vimh_only_dirs "$unique_files" )
 	fi
@@ -289,7 +290,7 @@ _Vimh_get_uniquepaths() {
 	local path_input="${1:-}"
 	local filter_str="${2:-}"
 	local flag_imaginary="${3:-}"
-	local flag_only_realpaths="${4:-}"
+	local flag_resolve_symlinks="${4:-}"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -298,24 +299,16 @@ _Vimh_get_uniquepaths() {
 	fi
 	#	}}}
 
-	#if [[ $_vimh_flag_only_realpaths -ne 0 ]]; then
-	#	echo "$func_name, error, _Vimh_filter_realpaths not available" > /dev/stderr
-	#	return 2
-	#	#unique_files_list_str=$( _Vimh_filter_realpaths "$unique_files_list_str" | tac | awk '!count[$0]++' | tac )
-	#fi
-
 	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
 	log_debug_vimh "$func_name, lines(read_files_str)=(`echo $read_files_str | wc -l`)"
-	#log_debug_vimh "$func_name, read_files_str=($read_files_str)"
 
-	if [[ $flag_only_realpaths == "--readlink" ]]; then
+	if [[ $flag_resolve_symlinks == "--readlink" ]]; then
 		read_files_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
 		read_files_str=$( _Vimh_resolve_symlinks "$read_files_str" )
 	fi
 
 	local unique_files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
 	log_debug_vimh "$func_name, lines(unique_files_list_str)=(`echo $unique_files_list_str | wc -l`)"
-	#log_debug_vimh "$func_name, unique_files_list_str=($unique_files_list_str)"
 
 	#	validate non-empty: unique_files_list_str
 	#	{{{
@@ -333,7 +326,6 @@ _Vimh_get_uniquepaths() {
 
 	existing_unique_files_list_str=$( _Vimh_only_existing_files "$unique_files_list_str" )
 	log_debug_vimh "$func_name, lines(existing_unique_files_list_str)=(`echo "$existing_unique_files_list_str" | wc -l`)"
-	#log_debug_vimh "$func_name, existing_unique_files_list_str=($existing_unique_files_list_str)"
 
 	echo "$existing_unique_files_list_str"
 }
@@ -360,14 +352,6 @@ _Vimh_read_paths_in_file() {
 	fi
 	#	}}}
 
-	#	{{{
-	#	disabled grep filtering
-	#oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-	#youngest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
-	#oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-	#youngest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
-	#	}}}
-
 	if [[ "$_vimh_lines_limit" -eq 0 ]]; then
 		oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | head -n 1 | awk -F'\t' '{print $1}' )
 		youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n 1 | awk -F'\t' '{print $1}' )
@@ -376,17 +360,15 @@ _Vimh_read_paths_in_file() {
 		youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
 	fi
 
-	current_epoch=`$_vimh_bin_date "+%s"`
-	oldest_epoch_included=$( $_vimh_bin_date --date="$oldest_date_included" "+%s" )
-	youngest_epoch_included=$( $_vimh_bin_date --date="$youngest_date_included" "+%s" )
-	delta_d_oldest_date_included=$( perl -E "printf('%g', ($current_epoch - $oldest_epoch_included)/(24*60*60) )" )
-	delta_s_youngest_date_included=$( perl -E "say( $current_epoch - $youngest_epoch_included )" )
+
+	local delta_d_oldest_date_included=$( _Vimh_date_delta_now "$oldest_date_included" "d" )
+	local delta_s_youngest_date_included=$( _Vimh_date_delta_now "$youngest_date_included" "s" )
+
 	#	warning if delta_s_youngest_date_included > some_threshold?
 
 	#	log_debug_vimh: path_input, filter_str, _vimh_lines_limit, oldest_date_included, youngest_date_included
 	#	{{{
 	log_debug_vimh "$func_name, path_input=($path_input)"
-	#log_debug_vimh "$func_name, note: not using 'grep \"\$filter_str\"' -> reason it caused an issue unresolved [...] (re-enabled with '--text' flag)"
 	log_debug_vimh "$func_name, filter_str=($filter_str)"
 	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
 	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)"
@@ -396,19 +378,43 @@ _Vimh_read_paths_in_file() {
 	#	}}}
 
 	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?) [...] (I mean it does?) [...] (and we test for this?)
-	#	{{{
-	#	disabled grep filtering
-	#result_str=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $6}' )
-	#result_str=$( cat "$path_input" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $6}' )
-	#	}}}
 	if [[ "$_vimh_lines_limit" -eq 0 ]]; then
 		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | awk -F'\t' '{print $6}' )
 	else
 		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $6}' )
 	fi
 	log_debug_vimh "$func_name, lines(result_str)=(`echo $result_str | wc -l`)"
-	#log_debug_vimh "$func_name, result_str=($result_str)"
+
 	echo "$result_str"
+}
+
+
+_Vimh_date_delta_now() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+	fi
+	#	}}}
+	local date="$1"
+	local format="$2"
+	local current_epoch=$( $_vimh_bin_date "+%s" )
+	local date_epoch=$( $_vimh_bin_date --date="$date" "+%s" )
+	local result=""
+	if [[ $format == "s" ]]; then
+		result=$( perl -E "say( $current_epoch - $date_epoch )" )
+	elif [[ $format == "d" ]]; then
+		result=$( perl -E "printf('%g', ($current_epoch - $date_epoch)/(24*60*60) )" )
+	else
+		echo "$func_name, error, (must be d/s) format=($format)" > /dev/stderr
+		return 2
+	fi
+	log_debug_vimh "$func_name, date=($date), format=($format), result=($result)"
+	echo "$result"
 }
 
 

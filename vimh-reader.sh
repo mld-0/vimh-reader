@@ -273,7 +273,7 @@ Usage:
 		fi
 		_Vimh_promptAndOpen "$unique_files"
 	else
-		unique_files=$( _Vimh_get_uniquepaths_with_counts"$path_input" "$filter_str" "$flag_imaginary" "$flag_resolve_symlinks" )
+		unique_files=$( _Vimh_get_uniquepaths_with_counts "$path_input" "$filter_str" "$flag_imaginary" "$flag_resolve_symlinks" )
 		#log_debug_vimh "$func_name, unique_files=($unique_files)"
 		if [[ $flag_dirs -ne 0 ]]; then
 			unique_files=$( _Vimh_only_dirs_with_counts "$unique_files" )

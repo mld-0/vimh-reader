@@ -16,6 +16,10 @@
 #	Ongoing: 2023-03-19T11:32:30AEDT _Vimh_print_prompt_files (and our usage of 'func "${passed[@]}"' and 'recieved=("$@")') appears to work for filenames with spaces
 #	2023-05-20T20:04:41AEST can't 'log_debug_vim' recieve it's argument without '$func_name' (that being something that will still be in scope?)
 #	2023-06-02T19:54:47AEST '--follow' generally unneccessary (since only realpaths are written to ~/.vimh)
+#	2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
+#	2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
+#	2022-06-06T02:42:37AEST can't use subshells if we want our use of 'cd' to effect the caller(?)
+#	2022-06-05T20:15:18AEST how to handle 'terminal window shorter than 4 / narrower than 12' case?
 #	}}}
 
 _vimh_flag_debug=0
@@ -28,13 +32,13 @@ _vimh_path_localhistory="$HOME/.vimh"
 _vimh_path_dir_globalhistory="$mld_out_cloud_shared/combined-logs"
 _vimh_name_globalhistory="vimh.vi.txt"
 
-
 #	application to open files
 _vimh_editor="$EDITOR"
 
 #	number of lines to read from log file(s) (set to 0 for all)
 _vimh_lines_limit=50000
 
+#	must be gnu-date (not built-in macOS bsd-date)
 _vimh_bin_date=date
 
 #	validate: _vimh_path_localhistory, _vimh_path_dir_globalhistory, _vimh_editor, mld_log_vimh, _vimh_bin_date
@@ -59,59 +63,6 @@ if ! command -v $_vimh_bin_date  &> /dev/null; then
 fi
 #	}}}
 
-##	UNIMPLEMENTED: _Vimh_get_uniquepathCounts
-#	{{{
-#_Vimh_get_uniquepathCounts() {
-#	#	{{{
-#	local func_name=""
-#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
-#		func_name=${funcstack[1]:-}
-#	elif [[ -n "${BASH_VERSION:-}" ]]; then
-#		func_name="${FUNCNAME[0]:-}"
-#	else
-#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
-#	fi
-#	#	}}}
-#	local path_input="${1:-}"
-#	local filter_str="${2:-}"
-#	#	validate: path_input
-#	#	{{{
-#	if [[ ! -f "$path_input" ]]; then
-#		echo "$func_name, error, file not found, path_input=($path_input)" > /dev/stderr
-#		return 2
-#	fi
-#	#	}}}
-#
-#	#	Ongoing: 2022-08-28T01:11:40AEST this use of 'grep "$filter_str"' is problematic (for an undiscovered reason)
-#	#oldest_date_included=$( cat "$path_input" | grep "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-#	oldest_date_included=$( cat "$path_input" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-#
-#	log_debug_vimh "$func_name, path_input=($path_input)"
-#	log_debug_vimh "$func_name, filter_str=($filter_str)"
-#	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
-#	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)" > /dev/stderr
-#	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
-#	#log_debug_vimh "$func_name, read_files_str=($read_files_str)" 
-#	local filesWithCounts=$( echo "$read_files_str" | sort -h | uniq -c | sort -h )
-#	log_debug_vimh "$func_name, filesWithCounts=($filesWithCounts)"
-#	local list_counts=$( echo "$filesWithCounts" | awk '{print $1}' )
-#	local list_files=$( echo "$filesWithCounts" | awk '{print $2}' )
-#	log_debug_vimh "$func_name, list_counts=($list_counts)"
-#	log_debug_vimh "$func_name, list_files=($list_files)"
-#}
-#Vimh_Counts() {
-#	#	{{{
-#	local func_name=""
-#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
-#		func_name=${funcstack[1]:-}
-#	elif [[ -n "${BASH_VERSION:-}" ]]; then
-#		func_name="${FUNCNAME[0]:-}"
-#	else
-#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
-#	fi
-#	#	}}}
-#}
-#	}}}
 
 
 Vimh() {
@@ -125,7 +76,7 @@ Vimh() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
-	local _vimh_version="0.1.3"
+	local _vimh_version="0.2.0"
 	local func_about="Utility for finding/opening recent items from vimh log"
 	local func_help="""$func_name, $_vimh_version
 $func_about
@@ -155,15 +106,17 @@ Usage:
 	fi
 	#	}}}
 
+	local path_input="$_vimh_path_localhistory"
 	local filter_str=""
-	local flag_global=0
 	local flag_dirs=0
 	local flag_repos=0
 	local flag_imaginary=""
-	local flag_only_most_recents=1
+	local flag_long_output=0
 	local flag_skip_prompt_open=0
 	local flag_resolve_symlinks=0
 	local flag_home_as_tilde=1
+	local lines_limit=$_vimh_lines_limit
+	local flag_global=0
 
 	#	parse args "$@"
 	#	{{{
@@ -171,12 +124,10 @@ Usage:
 		case $1 in
 			-f|--filter)
 				filter_str="$2"
-				#	{{{
 				if [[ -z "$filter_str" ]]; then
 					echo "$func_name, error, filter_str=($filter_str)" > /dev/stderr
 					return 2
 				fi
-				#	}}}
 				shift
 				shift
 				;;
@@ -203,16 +154,16 @@ Usage:
 				shift
 				;;
 			-m|--limit)
-				local _vimh_lines_limit="$2"
-				if [[ ! "$_vimh_lines_limit" =~ ^[0-9]+$ ]]; then
-					echo "$func_name, error, --limit must be a non-negative integer,_vimh_lines_limit=($_vimh_lines_limit)" > /dev/stderr
+				lines_limit="$2"
+				if [[ ! "$lines_limit" =~ ^[0-9]+$ ]]; then
+					echo "$func_name, error, --limit must be a non-negative integer,lines_limit=($lines_limit)" > /dev/stderr
 					return 2
 				fi
 				shift
 				shift
 				;;
 			-l|--long)
-				flag_only_most_recents=0
+				flag_long_output=1
 				shift
 				;;
 			-n|--noprompt)
@@ -250,33 +201,34 @@ Usage:
 	done
 	#	}}}
 
-	local path_input="$_vimh_path_localhistory"
-	if [[ ! $flag_global -eq 0 ]]; then
-		_Vimh_Update_GlobalHistory
+	if [[ $flag_global -ne 0 ]]; then
+		_Vimh_Update_GlobalHistory "$lines_limit"
 		path_input=$( _Vimh_GetPath_GlobalHistory )
 	fi
 
-	#	Ongoing: 2022-06-06T01:33:19AEST debug output, include time taken to run '_Vimh_get_uniquepaths'
-	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" "$flag_imaginary" "$flag_resolve_symlinks" )
+	local unique_files=$( _Vimh_get_uniquepaths "$path_input" "$filter_str" "$flag_imaginary" "$flag_resolve_symlinks" "$lines_limit" )
+
 	if [[ $flag_dirs -ne 0 ]]; then
 		unique_files=$( _Vimh_only_dirs "$unique_files" )
 	fi
 	if [[ $flag_repos -ne 0 ]]; then
 		unique_files=$( _Vimh_only_repo_dirs "$unique_files" )
 	fi
+	if [[ $flag_home_as_tilde -ne 0 ]]; then
+		unique_files=$( echo -n "$unique_files" | sed "s|$HOME|~|g" )
+	fi
 
-	#	Ongoing: 2022-06-06T01:37:14AEST can't capture output of '_Vimh_promptAndOpen' as a subshell and also display output from it before prompting for input from it (that is, can't move call to '_Vimh_cd_and_open' out of it)
-	_Vimh_promptAndOpen "$unique_files"
+	_Vimh_promptAndOpen "$unique_files" "$flag_long_output" "$flag_skip_prompt_open" 
 }
 
 
 
-_Vimh_get_uniquepaths() {
 #	{{{
 #	Test: 2022-06-06T03:16:09AEST are _Vimh_get_uniquepaths outputs each unique?
 #	Ongoing: 2022-06-06T01:18:36AEST use of 'echo' with/without '-n'  (would it change anything) (anywhere?)
 #	Ongoing: 2022-06-05T21:28:54AEST would it be faster to filter for existance before filtering for uniqueness? [...] new vimh is somehow slower than old one?
 #	}}}
+_Vimh_get_uniquepaths() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -291,6 +243,7 @@ _Vimh_get_uniquepaths() {
 	local filter_str="${2:-}"
 	local flag_imaginary="${3:-}"
 	local flag_resolve_symlinks="${4:-}"
+	local lines_limit="${5:-}"
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -299,35 +252,24 @@ _Vimh_get_uniquepaths() {
 	fi
 	#	}}}
 
-	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" )
-	log_debug_vimh "$func_name, lines(read_files_str)=(`echo $read_files_str | wc -l`)"
-
-	if [[ $flag_resolve_symlinks == "--readlink" ]]; then
-		read_files_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
-		read_files_str=$( _Vimh_resolve_symlinks "$read_files_str" )
-	fi
-
-	local unique_files_list_str=$( echo "$read_files_str" | tac | awk '!count[$0]++' | tac )
-	log_debug_vimh "$func_name, lines(unique_files_list_str)=(`echo $unique_files_list_str | wc -l`)"
-
-	#	validate non-empty: unique_files_list_str
+	local read_files_str=$( _Vimh_read_paths_in_file "$path_input" "$filter_str" "$lines_limit" )
 	#	{{{
-	if [[ -z "$unique_files_list_str" ]]; then
-		echo "$func_name, error, unique_files_list_str=($unique_files_list_str)" > /dev/stderr
-		return 2
-	fi
+	log_debug_vimh "$func_name, lines(read_files_str)=(`echo $read_files_str | wc -l`)"
 	#	}}}
 
-	if [[ $flag_imaginary == "--imaginary" ]]; then
-		log_debug_vimh "$func_name, skip filter _Vimh_only_existing_files"
-		echo "$unique_files_list_str"
-		return
+	local unique_files=$( echo "$read_files_str" | _Vimh_filter_keep_last )
+	if [[ $flag_resolve_symlinks == "--readlink" ]]; then
+		unique_files=$( _Vimh_resolve_symlinks "$unique_files" | _Vimh_filter_keep_last )
 	fi
+	unique_files=$( _Vimh_filter_prohibitied_files "$unique_files" )
+	if [[ $flag_imaginary != "--imaginary" ]]; then
+		unique_files=$( _Vimh_only_existing_files "$unique_files" )
+	fi
+	#	{{{
+	log_debug_vimh "$func_name, lines(unique_files)=(`echo $unique_files | wc -l`)"
+	#	}}}
 
-	existing_unique_files_list_str=$( _Vimh_only_existing_files "$unique_files_list_str" )
-	log_debug_vimh "$func_name, lines(existing_unique_files_list_str)=(`echo "$existing_unique_files_list_str" | wc -l`)"
-
-	echo "$existing_unique_files_list_str"
+	echo "$unique_files"
 }
 
 
@@ -344,6 +286,16 @@ _Vimh_read_paths_in_file() {
 	#	}}}
 	local path_input="${1:-}"
 	local filter_str="${2:-}"
+	local lines_limit="${3:-}"
+	local col_num_datetime=1
+	local col_num_paths=6
+	local col_sep='\t'
+	#	{{{
+	log_debug_vimh "$func_name, path_input=($path_input)"
+	log_debug_vimh "$func_name, filter_str=($filter_str)"
+	log_debug_vimh "$func_name, lines_limit=($lines_limit)"
+	#	}}}
+
 	#	validate: path_input
 	#	{{{
 	if [[ ! -f "$path_input" ]]; then
@@ -352,38 +304,22 @@ _Vimh_read_paths_in_file() {
 	fi
 	#	}}}
 
-	if [[ "$_vimh_lines_limit" -eq 0 ]]; then
-		oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | head -n 1 | awk -F'\t' '{print $1}' )
-		youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n 1 | awk -F'\t' '{print $1}' )
-	else
-		oldest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | head -n 1 | awk -F'\t' '{print $1}' )
-		youngest_date_included=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | tail -n 1 | awk -F'\t' '{print $1}' )
-	fi
+	local filetext=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | _Vimh_tail_ignore_zero "$lines_limit" )
 
-
-	local delta_d_oldest_date_included=$( _Vimh_date_delta_now "$oldest_date_included" "d" )
-	local delta_s_youngest_date_included=$( _Vimh_date_delta_now "$youngest_date_included" "s" )
-
-	#	warning if delta_s_youngest_date_included > some_threshold?
-
-	#	log_debug_vimh: path_input, filter_str, _vimh_lines_limit, oldest_date_included, youngest_date_included
+	#	warning if delta_s_youngest_date_included > some_threshold(?)
+	local oldest_date=$( echo "$filetext" | head -n 1 | awk -F"$col_sep" "{print \$$col_num_datetime}" )
+	local youngest_date=$( echo "$filetext" | tail -n 1 | awk -F"$col_sep" "{print \$$col_num_datetime}" )
+	local delta_d_oldest_date_included=$( _Vimh_date_delta_now "$oldest_date" "d" )
+	local delta_s_youngest_date_included=$( _Vimh_date_delta_now "$youngest_date" "s" )
 	#	{{{
-	log_debug_vimh "$func_name, path_input=($path_input)"
-	log_debug_vimh "$func_name, filter_str=($filter_str)"
-	log_debug_vimh "$func_name, _vimh_lines_limit=($_vimh_lines_limit)"
-	log_debug_vimh "$func_name, oldest_date_included=($oldest_date_included)"
-	log_debug_vimh "$func_name, youngest_date_included=($youngest_date_included)"
-	log_debug_vimh "$func_name, delta_d_oldest_date_included=($delta_d_oldest_date_included)"
-	log_debug_vimh "$func_name, delta_s_youngest_date_included=($delta_s_youngest_date_included)"
+	log_debug_vimh "$func_name, oldest_date=($oldest_date), delta_d=($delta_d_oldest_date_included)"
+	log_debug_vimh "$func_name, youngest_date=($youngest_date), delta_s=($delta_s_youngest_date_included)"
 	#	}}}
 
-	#	Ongoing: 2022-06-06T18:37:28AEST (requires that) grep does nothing given an empty argument(?) [...] (I mean it does?) [...] (and we test for this?)
-	if [[ "$_vimh_lines_limit" -eq 0 ]]; then
-		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | awk -F'\t' '{print $6}' )
-	else
-		result_str=$( cat "$path_input" | grep --text -v "^#" | grep --text "$filter_str" | tail -n $_vimh_lines_limit | awk -F'\t' '{print $6}' )
-	fi
+	local result_str=$( echo "$filetext" | awk -F"$col_sep" "{print \$$col_num_paths}" )
+	#	{{{
 	log_debug_vimh "$func_name, lines(result_str)=(`echo $result_str | wc -l`)"
+	#	}}}
 
 	echo "$result_str"
 }
@@ -413,7 +349,9 @@ _Vimh_date_delta_now() {
 		echo "$func_name, error, (must be d/s) format=($format)" > /dev/stderr
 		return 2
 	fi
+	#	{{{
 	log_debug_vimh "$func_name, date=($date), format=($format), result=($result)"
+	#	}}}
 	echo "$result"
 }
 
@@ -429,37 +367,21 @@ _Vimh_only_existing_files() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
-	local paths_list_str="${1:-}"
-	paths_list_str=$( _Vimh_filter_files "$paths_list_str" )
 	local IFS_temp=$IFS
 	IFS=$'\n'
-	local paths_list=( $( echo "$paths_list_str" ) ) 
+	local paths_list=( $( echo "${1:-}" ) ) 
 	IFS=$IFS_temp
+	local result=""
 	for loop_path in "${paths_list[@]}"; do
 		if [[ -f "$loop_path" ]]; then
 			loop_path=$( echo -n "$loop_path" )
-			echo "$loop_path"
+			result=$result$loop_path$'\n'
 		fi
 	done
-}
-
-
-_Vimh_filter_files() {
 	#	{{{
-	local func_name=""
-	if [[ -n "${ZSH_VERSION:-}" ]]; then 
-		func_name=${funcstack[1]:-}
-	elif [[ -n "${BASH_VERSION:-}" ]]; then
-		func_name="${FUNCNAME[0]:-}"
-	else
-		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
-	fi
+	log_debug_vimh "$func_name, lines(result)=(`echo "$result" | wc -l`)"
 	#	}}}
-	local paths_str="${1:-}"
-	#paths_str=$( echo "$paths_str" | grep --text -v "\/.git\/COMMIT_EDITMSG$" )
-	paths_str=$( echo "$paths_str" | grep --text -v "\.git$" )
-	paths_str=$( echo "$paths_str" | grep --text -v "COMMIT_EDITMSG$" )
-	echo "$paths_str"
+	echo "$result"
 }
 
 
@@ -485,12 +407,13 @@ _Vimh_only_dirs() {
 		fi
 		result_str=$result_str$'\n'$f
 	done
-	result_str=$( _Vimh_filter_dirs "$result_str" )
+	result_str=$( _Vimh_filter_prohibited_dirs "$result_str" )
 	if [[ -z "$result_str" ]]; then
 		return
 	fi
-	echo "$result_str" | grep --text -v "^$" | tac | awk '!count[$0]++' | tac
+	echo "$result_str" | _Vimh_filter_keep_last
 }
+
 
 _Vimh_only_repo_dirs() {
 	#	{{{
@@ -521,10 +444,27 @@ _Vimh_only_repo_dirs() {
 			cd "$previous_PWD"
 		fi
 	done
-	if [[ ! -z "$result_str" ]]; then
-		echo "$result_str" | grep --text -v "^$" | tac | awk '!count[$0]++' | tac
+	if [[ -z "$result_str" ]]; then
+		return
+	fi
+	echo "$result_str" | _Vimh_filter_keep_last
+}
+
+
+_Vimh_filter_keep_last() {
+	cat - | grep --text -v "^$" | tac | awk '!count[$0]++' | tac
+}
+
+
+_Vimh_tail_ignore_zero() {
+	local n=$1
+	if [[ $n -ne 0 ]]; then
+		cat - | tail -n $n
+	else
+		cat -
 	fi
 }
+
 
 _Vimh_resolve_symlinks() {
 	#	{{{
@@ -545,14 +485,32 @@ _Vimh_resolve_symlinks() {
 	local f_resolved=""
 	for f in "${paths_str[@]}"; do
 		f_resolved=`readlink -f "$f"`
-		#log_debug_vimh "$func_name, f=($f), f_resolved=($f_resolved)"
-		#result_str=$result_str$'\n'$f_resolved
-		echo "$f_resolved"
+		result_str=$result_str$'\n'$f_resolved
 	done
-	#echo "$result_str"
+	echo "$result_str"
 }
 
-_Vimh_filter_dirs() {
+
+_Vimh_filter_prohibitied_files() {
+	#	{{{
+	local func_name=""
+	if [[ -n "${ZSH_VERSION:-}" ]]; then 
+		func_name=${funcstack[1]:-}
+	elif [[ -n "${BASH_VERSION:-}" ]]; then
+		func_name="${FUNCNAME[0]:-}"
+	else
+		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
+	fi
+	#	}}}
+	local paths_str="${1:-}"
+	#paths_str=$( echo "$paths_str" | grep --text -v "\/.git\/COMMIT_EDITMSG$" )
+	paths_str=$( echo "$paths_str" | grep --text -v "\.git$" )
+	paths_str=$( echo "$paths_str" | grep --text -v "COMMIT_EDITMSG$" )
+	echo "$paths_str"
+}
+
+
+_Vimh_filter_prohibited_dirs() {
 	#	{{{
 	local func_name=""
 	if [[ -n "${ZSH_VERSION:-}" ]]; then 
@@ -569,7 +527,6 @@ _Vimh_filter_dirs() {
 }
 
 
-#	Ongoing: 2022-06-06T02:42:37AEST can't use subshells if we want our use of 'cd' to effect the caller(?)
 _Vimh_promptAndOpen() {
 	#	{{{
 	local func_name=""
@@ -582,10 +539,33 @@ _Vimh_promptAndOpen() {
 	fi
 	#	}}}
 	local unique_files="${1:-}"
+	local flag_long_output="${2:-0}"
+	local flag_skip_prompt_open="${3:-0}"
+	#	{{{
+	log_debug_vimh "$func_name, flag_long_output=($flag_long_output), flag_skip_prompt_open=($flag_skip_prompt_open)"
+	#	}}}
+
+	local output_height=$(( `tput lines` - 10 ))
+	#	ensure output_height > 1
+	#	{{{
+	if [[ $output_height -lt 1 ]]; then
+		output_height=1
+	fi
+	log_debug_vimh "$func_name, output_height=($output_height)"
+	#	}}}
+
+	if [[ $flag_long_output -eq 0 ]]; then
+		unique_files=$( echo "$unique_files" | tail -n $output_height )
+	fi
+
+	local prompt_files_str="$unique_files"
+	if [[ "$flag_skip_prompt_open" -eq 0 ]]; then
+		prompt_files_str=$( _Vimh_truncate_paths_to_screen "$unique_files" )
+	fi
+
 	local IFS_temp=$IFS
 	IFS=$'\n'
-	local promp_files=""
-	prompt_files=( $( _Vimh_truncate_paths_to_screen "$unique_files" ) )
+	local prompt_files=( $( echo "$prompt_files_str" ) )
 	IFS=$IFS_temp
 	#	validate: prompt_files
 	#	{{{
@@ -593,26 +573,25 @@ _Vimh_promptAndOpen() {
 		echo "$func_name, error, len(prompt_files)=(${#prompt_files[@]})" > /dev/stderr
 		return 2
 	fi
-	#	}}}
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
+	#	}}}
 
-	_Vimh_print_prompt_files "${prompt_files[@]}" 
-
+	_Vimh_print_prompt_files "$flag_skip_prompt_open" "${prompt_files[@]}" 
 	if [[ $flag_skip_prompt_open -ne 0 ]]; then
-		log_debug_vimh "$func_name, skip prompt open" 
 		return
 	fi
 
 	local range_max="${#prompt_files[@]}"
 	echo "Select [1, $range_max]:"
 	local user_selection_path=$( _Vimh_promptUser_selectPath "$range_max" "$unique_files" )
+	#	{{{
 	log_debug_vimh "$func_name, user_selection_path=($user_selection_path)"
+	#	}}}
 
 	_Vimh_cd_and_open "$user_selection_path"
 }
 
 
-#	Ongoing: 2022-06-05T20:15:18AEST how to handle 'terminal window shorter than 4 / narrower than 12' case?
 _Vimh_truncate_paths_to_screen() {
 	#	{{{
 	local func_name=""
@@ -625,53 +604,32 @@ _Vimh_truncate_paths_to_screen() {
 	fi
 	#	}}}
 	local unique_files="${1:-}"
-	local output_height=$(( `tput lines` - 10 ))
+
 	local output_width=$(( `tput cols` - 8 ))
-	#	ensure output_height and output_width > 1
+	#	ensure output_width > 1
 	#	{{{
-	if [[ $output_height -lt 1 ]]; then
-		output_height=1
-	fi
 	if [[ $output_width -lt 1 ]]; then
 		output_width=1
 	fi
+	log_debug_vimh "$func_name, output_width=($output_width)"
 	#	}}}
 
-	#	log_debug:
-	#	{{{
-	log_debug_vimh "$func_name, output_height=($output_height), output_width=($output_width)"
-	log_debug_vimh "$func_name, flag_only_most_recents=($flag_only_most_recents)"
-	log_debug_vimh "$func_name, flag_skip_prompt_open=($flag_skip_prompt_open)"
-	log_debug_vimh "$func_name, flag_home_as_tilde=($flag_home_as_tilde)"
-	#	}}}
-
-	#	{{{
-	#if [[ $flag_only_most_recents -ne 0 ]]; then
-	#	local prompt_files_str=( $( echo -n "$unique_files" | tail -n $output_height | sed "s|$HOME|~|g" ) )
-	#else
-	#	local prompt_files_str=( $( echo -n "$unique_files" | sed "s|$HOME|~|g" ) )
-	#fi
-	#	}}}
-	if [[ $flag_only_most_recents -ne 0 ]]; then
-		unique_files=$( echo -n "$unique_files" | tail -n $output_height )
-	fi
-	if [[ $flag_home_as_tilde -ne 0 ]]; then
-		unique_files=$( echo -n "$unique_files" | sed "s|$HOME|~|g" )
-	fi
 	local IFS_temp=$IFS
 	IFS=$'\n'
 	local prompt_files=( $( echo -n "$unique_files" ) )
 	IFS=$IFS_temp
-	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 
+	local result=""
+	local prepend_str="..."
+	local cut_width=0
 	for loop_file in "${prompt_files[@]}"; do
-		if [[ $flag_skip_prompt_open -eq 0 ]] && [[ `echo -n "$loop_file" | wc -c` -ge $output_width ]]; then
-			local prepend_str="..."
-			local cut_width=$(( $output_width - `echo -n "$prepend_str" | wc -c` ))
+		if [[ `echo -n "$loop_file" | wc -c` -ge $output_width ]]; then
+			cut_width=$(( $output_width - `echo -n "$prepend_str" | wc -c` ))
 			loop_file="$prepend_str${loop_file: -$cut_width}"
 		fi
-		echo -n "$loop_file\n"
+		result=$result$loop_file$'\n'
 	done
+	echo "$result"
 }
 
 
@@ -686,20 +644,22 @@ _Vimh_print_prompt_files() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
+	IFS_temp=$IFS
+	IFS=$'\n'
+	local flag_skip_prompt_open=$1
+	shift
 	local prompt_files=( "$@" )
+	IFS=$IFS_temp
+	#	{{{
 	log_debug_vimh "$func_name, len(prompt_files)=(${#prompt_files[@]})"
 	log_debug_vimh "$func_name, flag_skip_prompt_open=($flag_skip_prompt_open)"
-
-	if [[ $flag_skip_prompt_open -ne 0 ]]; then
-		for loop_file in "${prompt_files[@]}"; do
-			echo -n "$loop_file\n"
-		done
-		return
-	fi
+	#	}}}
 
 	i=${#prompt_files[@]}
 	for loop_file in "${prompt_files[@]}"; do
-		echo -n  "$i)  "
+		if [[ $flag_skip_prompt_open -eq 0 ]]; then
+			echo -n  "$i)  "
+		fi
 		echo -n "$loop_file\n"
 		i=$(( $i - 1 ))
 	done
@@ -719,6 +679,9 @@ _Vimh_promptUser_selectPath() {
 	#	}}}
 	local range_max="$1"
 	local unique_files="$2"
+	#	{{{
+	log_debug_vimh "$func_name, lines(unique_files)=(`echo "$unique_files" | wc -l`)"
+	#	}}}
 	#	validate: range_max
 	#	{{{
 	if [[ -z `echo "$range_max" | grep --text "^[[:digit:]]*$"` ]]; then
@@ -726,6 +689,7 @@ _Vimh_promptUser_selectPath() {
 		return 2
 	fi
 	#	}}}
+
 	local user_selection_num=""
 	read user_selection_num
 	#	validate: user_selection_num
@@ -738,13 +702,13 @@ _Vimh_promptUser_selectPath() {
 		echo "$func_name, error, invalid user_selection_num=($user_selection_num)" > /dev/stderr
 		return 2
 	fi
-	#	}}}
-	log_debug_vimh "$func_name, lines(unique_files)=(`echo "$unique_files" | wc -l`)"
 	log_debug_vimh "$func_name, user_selection_num=($user_selection_num)"
+	#	}}}
 
-	local user_selection_path=""
-	user_selection_path=$( echo "$unique_files" | tail -n "$user_selection_num" | head -n 1 )
+	local user_selection_path=$( echo "$unique_files" | tail -n "$user_selection_num" | head -n 1 )
+	#	{{{
 	log_debug_vimh "$func_name, user_selection_path=($user_selection_path)"
+	#	}}}
 
 	echo "$user_selection_path"
 }
@@ -762,6 +726,7 @@ _Vimh_cd_and_open() {
 	fi
 	#	}}}
 	local path_open="$1"
+	path_open="$( echo "$path_open" | sed "s|~|$HOME|" )"
 	#	validate: path_open
 	#	{{{
 	if [[ ! -e "$path_open" ]]; then
@@ -793,12 +758,13 @@ _Vimh_Update_GlobalHistory() {
 		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
 	fi
 	#	}}}
-	local path_global=$( _Vimh_GetPath_GlobalHistory )
+	local lines_limit="${1:-}"
 	local IFS_temp=$IFS
 	IFS=$'\n'
 	local path_locals=( $( _Vimh_GetPaths_CloudHistories ) )
 	IFS=$IFS_temp
 	local path_temp=$( mktemp )
+	local path_global=$( _Vimh_GetPath_GlobalHistory )
 	#	remove existing: path_global, path_temp
 	#	{{{
 	if [[ -f "$path_global" ]]; then
@@ -812,11 +778,7 @@ _Vimh_Update_GlobalHistory() {
 	#	}}}
 	for f in "${path_locals[@]}"; do
 		log_debug_vimh "$func_name, f=($f)"
-		if [[ "$_vimh_lines_limit" -eq 0 ]]; then
-			cat "$f" | grep --text -v "^#" >> "$path_temp"
-		else
-			cat "$f" | grep --text -v "^#" | tail -n $_vimh_lines_limit >> "$path_temp"
-		fi
+		cat "$f" | grep --text -v "^#" | _Vimh_tail_ignore_zero $lines_limit >> "$path_temp"
 	done
 	cat "$path_temp" | grep --text -v "^#" | sort -h > "$path_global"
 }
@@ -840,12 +802,14 @@ _Vimh_GetPath_GlobalHistory() {
 		return 2
 	fi
 	if [[ -z "$_vimh_name_globalhistory" ]]; then
-		echo "$func_name, error, _vimh_name_globalhistory=($_vimh_name_globalhistory)" > /dev/stderr
+		echo "$func_name, error, empty _vimh_name_globalhistory=($_vimh_name_globalhistory)" > /dev/stderr
 		return 2
 	fi
 	#	}}}
 	local path_str="$_vimh_path_dir_globalhistory/$_vimh_name_globalhistory"
+	#	{{{
 	log_debug_vimh "$func_name, path_str=($path_str)"
+	#	}}}
 	echo "$path_str"
 }
 
@@ -891,110 +855,5 @@ _Vimh_GetPaths_CloudHistories() {
 		echo "$f"
 	done
 }
-
-
-#	{{{
-#	Ongoing: 2022-06-04T23:17:26AEST problematic functions:
-#_Vimh_filterLines_lastUnique() {
-#	#	{{{
-#	local func_name=""
-#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
-#		func_name=${funcstack[1]:-}
-#	elif [[ -n "${BASH_VERSION:-}" ]]; then
-#		func_name="${FUNCNAME[0]:-}"
-#	else
-#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
-#	fi
-#	#	}}}
-#	#	Requires reading from pipe (stdin?)
-#}
-#_Vimh_filter_realpaths() {
-#	#	{{{
-#	local func_name=""
-#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
-#		func_name=${funcstack[1]:-}
-#	elif [[ -n "${BASH_VERSION:-}" ]]; then
-#		func_name="${FUNCNAME[0]:-}"
-#	else
-#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
-#	fi
-#	#	}}}
-#	#	Ongoing: 2022-06-04T23:14:14AEST fast way to run 'readlink -f {}' on 100+ files?
-#	#	No fast way to do this?
-#	#	{{{
-#	#if [[ -f "$loop_path" ]]; then
-#	#	#echo $( _Vimh_get_fast_realpath "$loop_path" )
-#	#	#realpath "$loop_path"
-#	#	readlink -f "$loop_path"
-#	#	#local temp_PWD=$PWD
-#	#	#cd -P "`dirname "$loop_path"`"
-#	#	#local output_dir="$PWD"
-#	#	#local output_name="`basename "$loop_path"`"
-#	#	#echo "$output_dir/$output_name"
-#	#	#realpath --canonicalize-existing "$loop_path"
-#	#	#realpath "$loop_path"
-#	#	#readlink -f "$loop_path"
-#	#	#realpath "$loop_path"
-#	#	#if [[ ! -h "$loop_path" ]]; then
-#	#	#	echo "$loop_path" 
-#	#	#else
-#	#	#	readlink "$loop_path"
-#	#	#fi
-#	#	#cd "$temp_PWD"
-#	#fi
-#	#	}}}
-#}
-#_Vimh_check_contains_symlink() {
-#	#	{{{
-#	local func_name=""
-#	if [[ -n "${ZSH_VERSION:-}" ]]; then 
-#		func_name=${funcstack[1]:-}
-#	elif [[ -n "${BASH_VERSION:-}" ]]; then
-#		func_name="${FUNCNAME[0]:-}"
-#	else
-#		printf "%s\n" "warning, func_name unset, non zsh/bash shell" > /dev/stderr
-#	fi
-#	#	}}}
-#	#	LINK: https://serverfault.com/questions/1069147/how-can-i-quickly-test-a-path-in-bash-to-determine-if-any-segment-of-it-is-a-sym
-#	#	If we can do this quickly as '[[ -L ]]', we can use 'echo' for files that pass and 'readlink -f' only where necessary
-##	{{{
-#	#local my_path="$1"
-#	#if [[ "$my_path" != "$(realpath --canonicalize-existing $my_path)" ]];then
-#	#  #echo The path $my_path is relative path or contains symlinks.
-#	#  return 1
-#	#else
-#	#  #echo The path $my_path is absolute.
-#	#  return 0
-#	#fi
-#	#local tmp="$1"
-#	#while [ "$tmp" != "." ]; do
-#	#	if [ -L "$tmp" ]; then
-#	#		#/bin/echo "$tmp - is symlink."
-#	#		return 1;
-#	#	else
-#	#		#/bin/echo "$tmp - is not symlink."
-#	#		return 0;
-#	#	fi
-#	#	tmp=$(dirname $tmp)
-#	#done
-##	}}}
-#}
-#check_sourced=1
-##	{{{
-#if [[ -n "${ZSH_VERSION:-}" ]]; then 
-#	if [[ ! -n ${(M)zsh_eval_context:#file} ]]; then
-#		check_sourced=0
-#	fi
-#elif [[ -n "${BASH_VERSION:-}" ]]; then
-#	(return 0 2>/dev/null) && check_sourced=1 || check_sourced=0
-#else
-#	echo "error, check_sourced, non-zsh/bash" > /dev/stderr
-#	exit 2
-#fi
-##	}}}
-#if [[ "$check_sourced" -eq 0 ]]; then
-#	vimh "$@"
-#fi
-#	}}}
 
 

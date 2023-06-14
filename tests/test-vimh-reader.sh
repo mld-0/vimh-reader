@@ -94,10 +94,11 @@ test_Vimh_read_paths_in_file() {
 	local result_str=""
 	local expected_str=""
 	local i=1
+	local lines_limit=$_vimh_lines_limit
 
-	#	Test without filter_str
-	result_str=$( _Vimh_read_paths_in_file "$test_data_path" )
-	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+	#	Test without filter_str (1)
+	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "" "$lines_limit" )
+	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | tail -n "$lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: $i\n"
 		echo "$func_name, result_str=($result_str)"
@@ -107,9 +108,9 @@ test_Vimh_read_paths_in_file() {
 	fi
 	i=$( perl -E "say $i+1" )
 
-	#	Test with filter_str
-	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
-	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+	#	Test with filter_str (2)
+	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" "$lines_limit" )
+	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: $i\n"
 		echo "$func_name, result_str=($result_str)"
@@ -119,9 +120,9 @@ test_Vimh_read_paths_in_file() {
 	fi
 	i=$( perl -E "say $i+1" )
 
-	#	Test '--limit 0'
-	local _vimh_lines_limit=0
-	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
+	#	Test '--limit 0' (3)
+	lines_limit=0
+	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" "$lines_limit" )
 	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: $i\n"
@@ -132,10 +133,10 @@ test_Vimh_read_paths_in_file() {
 	fi
 	i=$( perl -E "say $i+1" )
 
-	#	Test '--limit 1'
-	local _vimh_lines_limit=1
-	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" )
-	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$_vimh_lines_limit" | awk -F'\t' '{print $5}' )
+	#	Test '--limit 1' (4)
+	lines_limit=1
+	result_str=$( _Vimh_read_paths_in_file "$test_data_path" "abc" "$lines_limit" )
+	expected_str=$( cat "$test_data_path" | grep --text -v "^#" | grep "abc" | tail -n "$lines_limit" | awk -F'\t' '{print $5}' )
 	if [[ ! "$result_str" == "$expected_str" ]]; then
 		echo "$func_name, fail: $i\n"
 		echo "$func_name, result_str=($result_str)"
